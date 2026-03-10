@@ -14,6 +14,7 @@ import {
     ArrowRight,
     Activity,
     DollarSign,
+    FileSpreadsheet,
 } from "lucide-react";
 import Link from "next/link";
 import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';

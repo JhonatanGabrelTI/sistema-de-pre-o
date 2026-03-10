@@ -1,0 +1,27 @@
+# Dependency directories
+node_modules/
+backend/venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+
+# Next.js build
+frontend/.next/
+frontend/out/
+
+# Environment variables (CRITICAL)
+.env
+.env.local
+*.env*
+!*.env.example
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Misc
+.vscode/
+.idea/
+/tmp/
+*.webp
+*.png

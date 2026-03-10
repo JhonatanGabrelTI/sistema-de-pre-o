@@ -77,28 +77,47 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
             
             html = response.text
             
-            # Simple regex to find items
-            # ML structure: <h2 class="ui-search-item__title">...</h2>
-            # Price: <span class="andes-money-amount__fraction">...</span>
+            # Heuristic 'link-first' approach: Find product links and prices anywhere
+            # Product links typically contain 'MLB-' (Mercado Livre Brasil)
+            # Prices are often near the text/title
             
-            items = re.findall(r'<div class="ui-search-result__wrapper".*?<\/div><\/div><\/div>', html, re.DOTALL)
-            
-            for item in items[:limit]:
-                title_match = re.search(r'<h2.*?class="ui-search-item__title".*?>(.*?)<\/h2>', item)
-                price_match = re.search(r'<span class="andes-money-amount__fraction".*?>(.*?)</span>', item)
-                link_match = re.search(r'<a.*?class="ui-search-link".*?href="(.*?)"', item)
+            # 1. Find all product links
+            product_links = re.findall(r'href="(https://[^"]*?mercadolivre\.com\.br/[^"]*?MLB-[^"]*?)"', html, re.IGNORECASE)
+            # 2. Find all prices
+            prices = re.findall(r'andes-money-amount__fraction[^>]*>(.*?)<\/span>', html)
+            # 3. Find all titles (loosely)
+            titles = re.findall(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', html, re.IGNORECASE)
+
+            # Zip them together as best as possible
+            for i in range(min(len(product_links), len(prices), limit)):
+                title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else f"Produto {i+1}"
+                price_str = prices[i].replace('.', '')
                 
-                if title_match and price_match and link_match:
-                    price_str = price_match.group(1).replace('.', '')
-                    offers.append({
-                        "marketplace": "Mercado Livre",
-                        "title": title_match.group(1).strip(),
-                        "price": float(price_str.replace(',', '.')),
-                        "shipping": 0.0, # Hard to parse reliably with simple regex
-                        "delivery_days": 2,
-                        "seller_rating": 4.5,
-                        "url": link_match.group(1)
-                    })
+                offers.append({
+                    "marketplace": "Mercado Livre",
+                    "title": title,
+                    "price": float(f"{price_str}.00"), # Simpler price for stability
+                    "shipping": 0.0,
+                    "delivery_days": 2,
+                    "seller_rating": 4.5,
+                    "url": product_links[i]
+                })
+
+            if not offers:
+                # Fallback to a broader search for any link + price if the above fail
+                raw_links = re.findall(r'href="([^"]*mercadolivre\.com\.br/[^"]*)"', html)
+                if raw_links and prices:
+                    for i in range(min(len(raw_links), len(prices), limit)):
+                        if "MLB-" in raw_links[i] or "/p/" in raw_links[i]:
+                            offers.append({
+                                "marketplace": "Mercado Livre",
+                                "title": f"Produto Base {i+1}",
+                                "price": float(prices[i].replace('.', '') + ".00"),
+                                "shipping": 0.0,
+                                "delivery_days": 2,
+                                "seller_rating": 4.5,
+                                "url": raw_links[i]
+                            })
             
             return offers
     except Exception as e:

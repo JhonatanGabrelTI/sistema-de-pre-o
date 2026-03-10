@@ -89,36 +89,36 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
             titles = re.findall(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', html, re.IGNORECASE)
 
             # Zip them together as best as possible
-            for i in range(min(len(product_links), len(prices), limit)):
+            temp_offers = []
+            for i in range(min(len(product_links), len(prices), 10)): # Check more to filter
                 title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else f"Produto {i+1}"
                 price_str = prices[i].replace('.', '')
+                price = float(f"{price_str}.00")
                 
-                offers.append({
+                # Kit detection: Often items with "kit", "pacote", "unidades", "conjunto" are MUCH more expensive
+                is_kit = any(k in title.lower() for k in ["kit", "pacote", "unidades", "conjunto", "atado", "combo"])
+                
+                temp_offers.append({
                     "marketplace": "Mercado Livre",
                     "title": title,
-                    "price": float(f"{price_str}.00"), # Simpler price for stability
+                    "price": price,
+                    "is_kit": is_kit,
                     "shipping": 0.0,
                     "delivery_days": 2,
                     "seller_rating": 4.5,
                     "url": product_links[i]
                 })
 
-            if not offers:
-                # Fallback to a broader search for any link + price if the above fail
-                raw_links = re.findall(r'href="([^"]*mercadolivre\.com\.br/[^"]*)"', html)
-                if raw_links and prices:
-                    for i in range(min(len(raw_links), len(prices), limit)):
-                        if "MLB-" in raw_links[i] or "/p/" in raw_links[i]:
-                            offers.append({
-                                "marketplace": "Mercado Livre",
-                                "title": f"Produto Base {i+1}",
-                                "price": float(prices[i].replace('.', '') + ".00"),
-                                "shipping": 0.0,
-                                "delivery_days": 2,
-                                "seller_rating": 4.5,
-                                "url": raw_links[i]
-                            })
+            # Preference logic:
+            # 1. Non-kits first
+            # 2. Lower prices first (usually means unit vs bundle)
+            temp_offers.sort(key=lambda x: (x["is_kit"], x["price"]))
             
+            offers = []
+            for o in temp_offers[:limit]:
+                del o["is_kit"] # Remove temp field
+                offers.append(o)
+
             return offers
     except Exception as e:
         logger.error(f"ML Scraper failed: {e}")

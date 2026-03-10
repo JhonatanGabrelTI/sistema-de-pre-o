@@ -56,6 +56,8 @@ def dashboard_stats(
     from app.models.project import Project
     from app.models.product import Product
     from app.models.offer import Offer
+    from sqlalchemy import func
+    from datetime import datetime, timedelta
 
     try:
         # User's projects
@@ -71,15 +73,93 @@ def dashboard_stats(
 
         # User's approved products
         approved = db.query(Product).filter(
-            Product.project_id.in_(user_products),
+            Product.project_id.in_(user_projects),
             Product.status == "APPROVED"
         ).count()
+
+        # DAILY ACTIVITY (Last 7 days)
+        seven_days_ago = datetime.utcnow() - timedelta(days=7)
+        activity_data = db.query(
+            func.date(Product.created_at).label('date'),
+            func.count(Product.id).label('count')
+        ).filter(
+            Product.project_id.in_(user_projects),
+            Product.created_at >= seven_days_ago
+        ).group_by(
+            func.date(Product.created_at)
+        ).order_by(
+            func.date(Product.created_at)
+        ).all()
+
+        days_map = {0: "Seg", 1: "Ter", 2: "Qua", 3: "Qui", 4: "Sex", 5: "Sáb", 6: "Dom"}
+        
+        # Build a complete 7-day array to ensure empty days exist
+        area_chart_data = []
+        for i in range(6, -1, -1):
+            d = datetime.utcnow() - timedelta(days=i)
+            day_str = days_map[d.weekday()]
+            
+            # Find if we have data for this date
+            count = 0
+            for row in activity_data:
+                # row.date could be a string or datetime.date object depending on DB backend
+                row_date_str = str(row.date)
+                if row_date_str == d.strftime('%Y-%m-%d'):
+                    count = row.count
+                    break
+            
+            area_chart_data.append({"name": day_str, "uv": count})
+
+        # SAVINGS PER PRODUCT (Top 4 products with the highest difference between max and min offer)
+        # 1. Get min and max offers per product
+        savings_query = db.query(
+            Product.name,
+            (func.max(Offer.price) - func.min(Offer.price)).label('economy')
+        ).join(
+            Offer, Product.id == Offer.product_id
+        ).filter(
+            Product.project_id.in_(user_projects)
+        ).group_by(
+            Product.id, Product.name
+        ).having(
+            func.count(Offer.id) > 1  # Only products with at least 2 offers have "economy"
+        ).order_by(
+            (func.max(Offer.price) - func.min(Offer.price)).desc()
+        ).limit(4).all()
+
+        bar_chart_data = []
+        for row in savings_query:
+            # truncate name so it looks decent in the chart
+            trunc_name = (row.name[:12] + '..') if len(row.name) > 12 else row.name
+            bar_chart_data.append({
+                "name": trunc_name.title(), 
+                "economia": round(row.economy, 2)
+            })
+
+        # Fallback if no savings data available
+        if not bar_chart_data:
+            bar_chart_data = [
+                {"name": "Eletro", "economia": 0},
+                {"name": "Limpeza", "economia": 0},
+                {"name": "Papelaria", "economia": 0},
+                {"name": "TI", "economia": 0},
+            ]
 
         return {
             "total_projects": total_projects,
             "total_products": total_products,
             "total_offers": total_offers,
             "approved_products": approved,
+            "areaChartData": area_chart_data,
+            "barChartData": bar_chart_data,
         }
     except Exception as e:
-        return {"total_projects": 0, "total_products": 0, "total_offers": 0, "approved_products": 0}
+        logger.error(f"Error fetching stats: {e}")
+        return {
+            "total_projects": 0, 
+            "total_products": 0, 
+            "total_offers": 0, 
+            "approved_products": 0,
+            "areaChartData": [],
+            "barChartData": []
+        }

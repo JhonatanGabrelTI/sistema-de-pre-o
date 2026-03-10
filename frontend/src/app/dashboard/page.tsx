@@ -24,6 +24,8 @@ interface Stats {
     total_products: number;
     total_offers: number;
     approved_products: number;
+    areaChartData?: { name: string; uv: number }[];
+    barChartData?: { name: string; economia: number }[];
 }
 
 const cardVariants = {
@@ -79,23 +81,9 @@ export default function DashboardPage() {
         },
     ];
 
-    // Mock data for charts since backend endpoint isn't fully expanded yet
-    const areaChartData = [
-        { name: 'Seg', uv: 4000 },
-        { name: 'Ter', uv: 3000 },
-        { name: 'Qua', uv: 2000 },
-        { name: 'Qui', uv: 2780 },
-        { name: 'Sex', uv: 1890 },
-        { name: 'Sáb', uv: 2390 },
-        { name: 'Dom', uv: 3490 },
-    ];
-
-    const barChartData = [
-        { name: 'Eletro', economia: 4000 },
-        { name: 'Limpeza', economia: 3000 },
-        { name: 'Papelaria', economia: 2000 },
-        { name: 'TI', economia: 2780 },
-    ];
+    // Use data from backend or empty arrays while loading
+    const areaChartData = stats?.areaChartData || [];
+    const barChartData = stats?.barChartData || [];
 
     return (
         <div>
@@ -239,8 +227,8 @@ export default function DashboardPage() {
                 <div className="glass-card" style={{ padding: 24 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                         <div>
-                            <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>Economia Estimada</h3>
-                            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Por categoria de produto</p>
+                            <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>Maiores Economias</h3>
+                            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Top 4 produtos com maior variação de preço</p>
                         </div>
                         <DollarSign size={20} color="var(--text-muted)" />
                     </div>

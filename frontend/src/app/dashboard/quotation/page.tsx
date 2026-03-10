@@ -6,13 +6,15 @@ import { api } from "@/lib/api";
 import { formatCurrency, formatPercent } from "@/lib/utils";
 import {
     FileSpreadsheet,
-    Download,
+    FileText,
     Loader2,
     CheckCircle2,
     ExternalLink,
     AlertCircle,
     RefreshCw,
 } from "lucide-react";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function QuotationPage() {
     const [projects, setProjects] = useState<any[]>([]);
@@ -67,13 +69,64 @@ export default function QuotationPage() {
         }
     };
 
-    const handleExport = async () => {
-        if (!selectedProject) return;
+    const handleExport = () => {
+        if (!selectedProject || !quotation) return;
         setExporting(true);
         try {
-            await api.quotations.export(selectedProject);
+            const doc = new jsPDF();
+
+            // Header
+            doc.setFontSize(22);
+            doc.setTextColor(99, 102, 241); // Accent color
+            doc.text("Preço Inteligente", 14, 20);
+
+            doc.setFontSize(14);
+            doc.setTextColor(40, 40, 40);
+            const project = projects.find(p => p.id === selectedProject);
+            doc.text(`Orçamento Final: ${project?.name || "Projeto"}`, 14, 30);
+
+            doc.setFontSize(10);
+            doc.setTextColor(100, 100, 100);
+            doc.text(`Data: ${new Date().toLocaleDateString("pt-BR")}`, 14, 38);
+
+            // Summary Info
+            doc.setFontSize(11);
+            doc.setTextColor(20, 20, 20);
+            doc.text(`Total de Itens: ${quotation.items.length}`, 14, 48);
+            doc.text(`Custo Total: ${formatCurrency(quotation.total_cost)}`, 14, 54);
+            doc.setTextColor(34, 197, 94); // Success color
+            doc.text(`Total Sugerido de Venda: ${formatCurrency(quotation.total_suggested)}`, 14, 60);
+
+            // Table Data
+            const tableColumn = ["Produto", "Qtd", "Custo Unitário", "Margem", "Preço Sugerido", "Total"];
+            const tableRows: any[] = [];
+
+            quotation.items.forEach((item: any) => {
+                const itemData = [
+                    item.product_name,
+                    item.quantity,
+                    formatCurrency(item.cost),
+                    formatPercent(item.margin),
+                    formatCurrency(item.suggested_price),
+                    formatCurrency(item.suggested_price * item.quantity),
+                ];
+                tableRows.push(itemData);
+            });
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: 70,
+                styles: { fontSize: 9, cellPadding: 3 },
+                headStyles: { fillColor: [99, 102, 241], textColor: 255 },
+                alternateRowStyles: { fillColor: [245, 245, 245] },
+            });
+
+            // Save PDF
+            doc.save(`orcamento_${project?.name?.replace(/\s+/g, "_").toLowerCase() || "doc"}.pdf`);
+
         } catch (err: any) {
-            setError(err.message || "Erro ao exportar");
+            setError(err.message || "Erro ao gerar PDF");
         } finally {
             setExporting(false);
         }
@@ -148,9 +201,9 @@ export default function QuotationPage() {
                         {exporting ? (
                             <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
                         ) : (
-                            <Download size={16} />
+                            <FileText size={16} />
                         )}
-                        Exportar Excel
+                        Exportar PDF
                     </button>
                 )}
             </div>

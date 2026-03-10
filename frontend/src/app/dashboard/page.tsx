@@ -12,8 +12,11 @@ import {
     TrendingUp,
     Upload,
     ArrowRight,
+    Activity,
+    DollarSign,
 } from "lucide-react";
 import Link from "next/link";
+import { AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, BarChart, Bar } from 'recharts';
 
 interface Stats {
     total_projects: number;
@@ -75,6 +78,24 @@ export default function DashboardPage() {
         },
     ];
 
+    // Mock data for charts since backend endpoint isn't fully expanded yet
+    const areaChartData = [
+        { name: 'Seg', uv: 4000 },
+        { name: 'Ter', uv: 3000 },
+        { name: 'Qua', uv: 2000 },
+        { name: 'Qui', uv: 2780 },
+        { name: 'Sex', uv: 1890 },
+        { name: 'Sáb', uv: 2390 },
+        { name: 'Dom', uv: 3490 },
+    ];
+
+    const barChartData = [
+        { name: 'Eletro', economia: 4000 },
+        { name: 'Limpeza', economia: 3000 },
+        { name: 'Papelaria', economia: 2000 },
+        { name: 'TI', economia: 2780 },
+    ];
+
     return (
         <div>
             {/* Header */}
@@ -82,31 +103,41 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                style={{ marginBottom: 40 }}
+                style={{ marginBottom: 40, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}
             >
-                <h1 style={{
-                    fontSize: 32,
-                    fontWeight: 800,
-                    marginBottom: 8,
-                    background: "linear-gradient(90deg, #fff 0%, #a855f7 100%)",
-                    WebkitBackgroundClip: "text",
-                    WebkitTextFillColor: "transparent",
-                    display: "inline-block"
-                }}>
-                    Olá, {user?.name?.split(" ")[0]} 👋
-                </h1>
-                <p style={{ color: "var(--text-secondary)", fontSize: 16, maxWidth: 600, lineHeight: 1.5 }}>
-                    Bem-vindo ao seu painel de inteligência de preços. Acompanhe suas cotações e maximize suas margens de lucro.
-                </p>
+                <div>
+                    <h1 style={{
+                        fontSize: 32,
+                        fontWeight: 700,
+                        letterSpacing: "-0.02em",
+                        marginBottom: 8,
+                        color: "var(--text-primary)"
+                    }}>
+                        Visão Geral
+                    </h1>
+                    <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>
+                        Bem-vindo de volta, {user?.name?.split(" ")[0]}. Aqui está o resumo das suas análises de preços.
+                    </p>
+                </div>
+                <div style={{ display: "flex", gap: 12 }}>
+                    <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                        <ArrowRight size={16} /> Exportar Relatório
+                    </button>
+                    <Link href="/dashboard/upload">
+                        <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                            <Upload size={16} /> Nova Análise
+                        </button>
+                    </Link>
+                </div>
             </motion.div>
 
-            {/* Stats Grid */}
+            {/* Smart Stats Grid */}
             <div
                 style={{
                     display: "grid",
-                    gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))",
-                    gap: 16,
-                    marginBottom: 32,
+                    gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))",
+                    gap: 20,
+                    marginBottom: 40,
                 }}
             >
                 {statCards.map((card, i) => {
@@ -118,82 +149,127 @@ export default function DashboardPage() {
                             variants={cardVariants}
                             initial="hidden"
                             animate="visible"
-                            whileHover={{ y: -5, scale: 1.02, boxShadow: `0 10px 40px ${card.bg}` }}
-                            transition={{ duration: 0.3 }}
                             className="glass-card"
                             style={{
-                                padding: 28,
+                                padding: 24,
                                 position: "relative",
                                 overflow: "hidden",
-                                borderWidth: "1px",
-                                borderColor: "rgba(255,255,255,0.05)"
+                                display: "flex",
+                                flexDirection: "column",
                             }}
                         >
                             <div style={{
-                                position: "absolute",
-                                top: -20,
-                                right: -20,
-                                width: 100,
-                                height: 100,
-                                background: card.color,
-                                filter: "blur(50px)",
-                                opacity: 0.15,
-                                zIndex: 0,
-                                borderRadius: "50%"
-                            }} />
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                marginBottom: 16,
+                            }}>
+                                <span style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>{card.label}</span>
+                                <div style={{
+                                    width: 36,
+                                    height: 36,
+                                    borderRadius: 10,
+                                    background: card.bg,
+                                    display: "flex",
+                                    alignItems: "center",
+                                    justifyContent: "center",
+                                    border: `1px solid ${card.color}30`
+                                }}>
+                                    <Icon size={18} color={card.color} strokeWidth={2} />
+                                </div>
+                            </div>
 
-                            <div style={{ position: "relative", zIndex: 1 }}>
-                                <div
-                                    style={{
-                                        display: "flex",
-                                        alignItems: "center",
-                                        justifyContent: "space-between",
-                                        marginBottom: 20,
-                                    }}
-                                >
-                                    <div
-                                        style={{
-                                            width: 48,
-                                            height: 48,
-                                            borderRadius: 14,
-                                            background: card.bg,
-                                            display: "flex",
-                                            alignItems: "center",
-                                            justifyContent: "center",
-                                            boxShadow: `0 4px 12px ${card.bg}`,
-                                        }}
-                                    >
-                                        <Icon size={24} color={card.color} strokeWidth={2.5} />
-                                    </div>
-                                </div>
-                                <div
-                                    style={{
-                                        fontSize: 36,
-                                        fontWeight: 800,
-                                        marginBottom: 6,
-                                        fontVariantNumeric: "tabular-nums",
-                                        letterSpacing: "-0.5px"
-                                    }}
-                                >
-                                    {loading ? <div className="skeleton" style={{ width: 80, height: 42, borderRadius: 8 }} /> : card.value}
-                                </div>
-                                <div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>{card.label}</div>
+                            <div style={{
+                                fontSize: 32,
+                                fontWeight: 700,
+                                color: "var(--text-primary)",
+                                letterSpacing: "-0.02em",
+                                display: "flex",
+                                alignItems: "baseline",
+                                gap: 8
+                            }}>
+                                {loading ? <div className="skeleton" style={{ width: 60, height: 38, borderRadius: 6 }} /> : card.value}
+                                {!loading && i === 1 && <span style={{ fontSize: 13, color: "var(--success)" }}>+12%</span>}
                             </div>
                         </motion.div>
                     );
                 })}
             </div>
 
-            {/* Quick actions */}
+            {/* Charts Section */}
+            <motion.div
+                initial={{ opacity: 0, y: 20 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: 0.3, duration: 0.6 }}
+                style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 40 }}
+            >
+                {/* Area Chart */}
+                <div className="glass-card" style={{ padding: 24 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                        <div>
+                            <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>Atividade de Análise</h3>
+                            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Produtos processados nos últimos 7 dias</p>
+                        </div>
+                        <Activity size={20} color="var(--text-muted)" />
+                    </div>
+                    <div style={{ height: 300, width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <AreaChart data={areaChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <defs>
+                                    <linearGradient id="colorUv" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="var(--accent)" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="var(--accent)" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                                <Tooltip
+                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+                                    itemStyle={{ color: 'var(--text-primary)' }}
+                                />
+                                <Area type="monotone" dataKey="uv" stroke="var(--accent)" strokeWidth={3} fillOpacity={1} fill="url(#colorUv)" />
+                            </AreaChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+
+                {/* Bar Chart */}
+                <div className="glass-card" style={{ padding: 24 }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
+                        <div>
+                            <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>Economia Estimada</h3>
+                            <p style={{ fontSize: 13, color: "var(--text-secondary)" }}>Por categoria de produto</p>
+                        </div>
+                        <DollarSign size={20} color="var(--text-muted)" />
+                    </div>
+                    <div style={{ height: 300, width: '100%' }}>
+                        <ResponsiveContainer width="100%" height="100%">
+                            <BarChart data={barChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--border)" />
+                                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} dy={10} />
+                                <YAxis axisLine={false} tickLine={false} tick={{ fill: 'var(--text-secondary)', fontSize: 12 }} />
+                                <Tooltip
+                                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                                    contentStyle={{ background: 'var(--bg-card)', border: '1px solid var(--border)', borderRadius: 8 }}
+                                    itemStyle={{ color: 'var(--success)' }}
+                                />
+                                <Bar dataKey="economia" fill="var(--success)" radius={[4, 4, 0, 0]} barSize={30} />
+                            </BarChart>
+                        </ResponsiveContainer>
+                    </div>
+                </div>
+            </motion.div>
+
+            {/* Quick Actions (Portal Cards) */}
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.5, duration: 0.6 }}
-                style={{ marginTop: 40 }}
             >
                 <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
                     <div style={{ width: 4, height: 24, background: "var(--accent)", borderRadius: 4 }} />
-                    <h2 style={{ fontSize: 20, fontWeight: 700 }}>Ações Rápidas</h2>
+                    <h2 style={{ fontSize: 18, fontWeight: 600, color: "var(--text-primary)" }}>Acesso Rápido</h2>
                 </div>
 
                 <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
@@ -203,38 +279,36 @@ export default function DashboardPage() {
                             whileTap={{ scale: 0.98 }}
                             className="glass-card link-card"
                             style={{
-                                padding: 24,
+                                padding: "24px",
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 20,
                                 cursor: "pointer",
-                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 54,
-                                    height: 54,
-                                    borderRadius: 14,
-                                    background: "var(--gradient-primary)",
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 12,
+                                    background: "var(--accent)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
-                                    boxShadow: "0 8px 20px rgba(139, 92, 246, 0.25)"
+                                    boxShadow: "0 4px 20px var(--accent-glow)"
                                 }}
                             >
-                                <Upload size={24} color="white" />
+                                <Upload size={22} color="white" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
-                                    Novo Upload
+                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                                    Importar Lista PDF
                                 </div>
                                 <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
-                                    Envie um PDF com a lista técnica
+                                    Inicie uma nova cotação agora
                                 </div>
                             </div>
-                            <ArrowRight size={20} color="var(--text-muted)" />
                         </motion.div>
                     </Link>
 
@@ -244,38 +318,36 @@ export default function DashboardPage() {
                             whileTap={{ scale: 0.98 }}
                             className="glass-card link-card"
                             style={{
-                                padding: 24,
+                                padding: "24px",
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 20,
                                 cursor: "pointer",
-                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 54,
-                                    height: 54,
-                                    borderRadius: 14,
-                                    background: "rgba(139,92,246,0.1)",
-                                    border: "1px solid rgba(139,92,246,0.2)",
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 12,
+                                    background: "rgba(34, 197, 94, 0.1)",
+                                    border: "1px solid rgba(34, 197, 94, 0.2)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
                                 }}
                             >
-                                <TrendingUp size={24} color="#8b5cf6" />
+                                <CheckCircle2 size={22} color="var(--success)" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
-                                    Ver Produtos
+                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                                    Aprovar Produtos
                                 </div>
                                 <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
-                                    Gerencie e analise as margens
+                                    Revise margens e aprove itens
                                 </div>
                             </div>
-                            <ArrowRight size={20} color="var(--text-muted)" />
                         </motion.div>
                     </Link>
 
@@ -285,38 +357,36 @@ export default function DashboardPage() {
                             whileTap={{ scale: 0.98 }}
                             className="glass-card link-card"
                             style={{
-                                padding: 24,
+                                padding: "24px",
                                 display: "flex",
                                 alignItems: "center",
                                 gap: 20,
                                 cursor: "pointer",
-                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 54,
-                                    height: 54,
-                                    borderRadius: 14,
-                                    background: "rgba(34,197,94,0.1)",
-                                    border: "1px solid rgba(34,197,94,0.2)",
+                                    width: 48,
+                                    height: 48,
+                                    borderRadius: 12,
+                                    background: "rgba(245, 158, 11, 0.1)",
+                                    border: "1px solid rgba(245, 158, 11, 0.2)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
                                 }}
                             >
-                                <CheckCircle2 size={24} color="#22c55e" />
+                                <FileSpreadsheet size={22} color="var(--warning)" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
-                                    Gerar Orçamentos
+                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                                    Gerar Orçamento Final
                                 </div>
                                 <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
                                     Exporte PDFs e planilhas finais
                                 </div>
                             </div>
-                            <ArrowRight size={20} color="var(--text-muted)" />
                         </motion.div>
                     </Link>
                 </div>

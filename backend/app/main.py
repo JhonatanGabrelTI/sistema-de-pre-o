@@ -1,8 +1,7 @@
 import logging
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, get_db
-from app.models.base import Base
+from app.database import engine, get_db, Base
 from app.models.user import User
 from app.routers import auth, projects, products, offers, quotations
 from fastapi import Depends

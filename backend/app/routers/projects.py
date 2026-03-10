@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form
+from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
 from app.database import get_db
@@ -16,6 +16,7 @@ router = APIRouter(prefix="/api/projects", tags=["Projects"])
 async def upload_pdf(
     file: UploadFile = File(...),
     name: str = Form("Novo Projeto"),
+    background_tasks: BackgroundTasks = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -56,9 +57,11 @@ async def upload_pdf(
     db.commit()
     db.refresh(project)
 
-    # Automatic search
+    # Automatic search in background to not block the response
     from app.services.marketplace_service import search_and_save_offers
-    await search_and_save_offers(str(project.id), db)
+    if background_tasks:
+        # We need a new session for the background task to avoid closure issues
+        background_tasks.add_task(search_and_save_offers, str(project.id), next(get_db()))
 
     product_count = db.query(Product).filter(Product.project_id == project.id).count()
 

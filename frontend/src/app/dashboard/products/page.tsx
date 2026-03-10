@@ -228,7 +228,9 @@ export default function ProductsPage() {
                         <tr>
                             <th>Produto</th>
                             <th>Qtd</th>
+                            <th>Custo (Mercado)</th>
                             <th>Margem (%)</th>
+                            <th>Sugestão Venda</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
@@ -257,6 +259,14 @@ export default function ProductsPage() {
                                     <td style={{ fontWeight: 500, maxWidth: 300 }}>{product.name}</td>
                                     <td>{product.quantity}</td>
                                     <td>
+                                        <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
+                                            {product.min_price ? `R$ ${product.min_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "---"}
+                                        </div>
+                                        {product.best_marketplace && (
+                                            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{product.best_marketplace}</div>
+                                        )}
+                                    </td>
+                                    <td>
                                         <input
                                             type="number"
                                             value={product.margin}
@@ -264,6 +274,12 @@ export default function ProductsPage() {
                                             className="input-field"
                                             style={{ width: 80, padding: "6px 10px", fontSize: 13 }}
                                         />
+                                    </td>
+                                    <td style={{ color: "var(--accent)", fontWeight: 700 }}>
+                                        {product.min_price
+                                            ? `R$ ${(product.min_price * (1 + product.margin / 100)).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                            : "---"
+                                        }
                                     </td>
                                     <td>{statusBadge(product.status)}</td>
                                     <td>

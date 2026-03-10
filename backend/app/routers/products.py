@@ -44,19 +44,28 @@ def list_products(
         Product.project_id == project_id
     ).order_by(Product.created_at).all()
 
-    return [
-        ProductResponse(
-            id=str(p.id),
-            project_id=str(p.project_id),
-            name=p.name,
-            description=p.description,
-            quantity=p.quantity,
-            status=p.status,
-            margin=p.margin,
-            created_at=p.created_at,
+    # Calculate min price for each product
+    response = []
+    for p in products:
+        best_offer = None
+        if p.offers:
+            best_offer = min(p.offers, key=lambda o: o.price)
+        
+        response.append(
+            ProductResponse(
+                id=str(p.id),
+                project_id=str(p.project_id),
+                name=p.name,
+                description=p.description,
+                quantity=p.quantity,
+                status=p.status,
+                margin=p.margin,
+                min_price=best_offer.price if best_offer else None,
+                best_marketplace=best_offer.marketplace if best_offer else None,
+                created_at=p.created_at,
+            )
         )
-        for p in products
-    ]
+    return response
 
 
 @router.patch("/{product_id}/status", response_model=ProductResponse)

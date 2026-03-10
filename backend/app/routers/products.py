@@ -83,6 +83,10 @@ def update_status(
     db.commit()
     db.refresh(product)
 
+    best_offer = None
+    if product.offers:
+        best_offer = min(product.offers, key=lambda o: o.price)
+
     return ProductResponse(
         id=str(product.id),
         project_id=str(product.project_id),
@@ -91,6 +95,8 @@ def update_status(
         quantity=product.quantity,
         status=product.status,
         margin=product.margin,
+        min_price=best_offer.price if best_offer else None,
+        best_marketplace=best_offer.marketplace if best_offer else None,
         created_at=product.created_at,
     )
 

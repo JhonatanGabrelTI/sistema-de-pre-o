@@ -15,7 +15,7 @@ class Product(Base):
     description = Column(String, nullable=True)
     quantity = Column(Integer, default=1)
     status = Column(String, default="PENDING")  # PENDING, APPROVED, DISCARDED
-    margin = Column(Float, default=0.0)
+    margin = Column(Float, default=30.0)
     created_at = Column(DateTime, default=datetime.utcnow)
 
     project = relationship("Project", back_populates="products")

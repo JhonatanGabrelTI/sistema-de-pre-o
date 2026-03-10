@@ -13,6 +13,7 @@ MARKETPLACE_URLS = {
     "Mercado Livre": "https://lista.mercadolivre.com.br/",
     "Shopee": "https://shopee.com.br/search?keyword=",
     "Amazon": "https://www.amazon.com.br/s?k=",
+    "Magazine Luiza": "https://www.magazineluiza.com.br/busca/"
 }
 
 def _generate_simulated_offer(product_name: str, marketplace: str, index: int = 0) -> Dict[str, Any]:
@@ -182,6 +183,106 @@ async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, An
         logger.error(f"Amazon Scraper failed: {e}")
         return []
 
+async def _scrape_magalu(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """Scrapes real data from Magazine Luiza."""
+    search_term = product_name.replace(' ', '+')
+    url = f"https://www.magazineluiza.com.br/busca/{search_term}/"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+    }
+    
+    offers = []
+    try:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=15.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return []
+            
+            html = response.text
+            
+            # Simple regex to find product cards (Magalu uses internal JSON state, but sometimes some HTML is present)
+            # Find data-testid="product-card" blocks
+            containers = html.split('data-testid="product-card"')
+            
+            for container in containers[1:10]: # Skip first chunk before first card
+                link_match = re.search(r'href="(https://www\.magazineluiza\.com\.br/[^"]*)"', container)
+                title_match = re.search(r'data-testid="product-title"[^>]*>(.*?)<\/h2>', container)
+                price_match = re.search(r'data-testid="price-value"[^>]*>(.*?)<\/p>', container)
+                
+                if link_match and price_match and title_match:
+                    clean_title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip()
+                    price_str = price_match.group(1).replace('R$', '').replace('.', '').replace(',', '.').strip()
+                    
+                    try:
+                        price = float(price_str)
+                        offers.append({
+                            "marketplace": "Magazine Luiza",
+                            "title": clean_title[:100],
+                            "price": price,
+                            "shipping": 0.0,
+                            "delivery_days": 3,
+                            "seller_rating": 4.5,
+                            "url": link_match.group(1)
+                        })
+                    except:
+                        continue
+                        
+            offers.sort(key=lambda x: x["price"])
+            return offers[:limit]
+    except Exception as e:
+        logger.error(f"Magalu Scraper failed: {e}")
+        return []
+
+async def _scrape_shopee(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """Scrapes data from Shopee (Basic implementation, might face bot protection)."""
+    search_term = product_name.replace(' ', '%20')
+    # Shopee public search API (often requires cookie/auth, but sometimes works anonymously)
+    url = f"https://shopee.com.br/api/v4/search/search_items?by=relevancy&keyword={search_term}&limit=10&newest=0&order=desc&page_type=search"
+    
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Accept": "application/json",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Referer": f"https://shopee.com.br/search?keyword={search_term}"
+    }
+    
+    offers = []
+    try:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=15.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return []
+            
+            data = response.json()
+            items = data.get("items", [])
+            
+            for item in items[:10]:
+                item_info = item.get("item_basic", {})
+                title = item_info.get("name", "")
+                price = item_info.get("price", 0) / 100000  # Shopee prices are multiplied by 100,000
+                itemid = item_info.get("itemid", "")
+                shopid = item_info.get("shopid", "")
+                
+                if title and price > 0:
+                    offers.append({
+                        "marketplace": "Shopee",
+                        "title": title[:100],
+                        "price": price,
+                        "shipping": 0.0,
+                        "delivery_days": 7,
+                        "seller_rating": 4.6,
+                        "url": f"https://shopee.com.br/product/{shopid}/{itemid}"
+                    })
+                    
+            offers.sort(key=lambda x: x["price"])
+            return offers[:limit]
+    except Exception as e:
+        logger.error(f"Shopee Scraper failed: {e}")
+        return []
+
 async def search_marketplace_prices(product_name: str, num_offers: int = 3) -> List[Dict[str, Any]]:
     """Search for product prices across real marketplaces only."""
     offers = []
@@ -195,6 +296,16 @@ async def search_marketplace_prices(product_name: str, num_offers: int = 3) -> L
     amz_offers = await _scrape_amazon(product_name, num_offers)
     if amz_offers:
         offers.extend(amz_offers)
+
+    # Try Magazine Luiza
+    magalu_offers = await _scrape_magalu(product_name, num_offers)
+    if magalu_offers:
+        offers.extend(magalu_offers)
+
+    # Try Shopee
+    shopee_offers = await _scrape_shopee(product_name, num_offers)
+    if shopee_offers:
+        offers.extend(shopee_offers)
     
     logger.info(f"Retrieved {len(offers)} real offers for '{product_name}'")
     return offers

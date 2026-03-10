@@ -22,6 +22,7 @@ import {
 
 const navItems = [
     { href: "/dashboard", icon: LayoutDashboard, label: "Visão Geral" },
+    { href: "/dashboard/upload", icon: Upload, label: "Nova Análise" },
     { href: "/dashboard/products", icon: Package, label: "Produtos" },
     { href: "/dashboard/offers", icon: ShoppingBag, label: "Ofertas" },
     { href: "/dashboard/analysis", icon: BarChart3, label: "Análise" },

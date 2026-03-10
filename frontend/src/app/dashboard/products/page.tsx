@@ -183,8 +183,17 @@ export default function ProductsPage() {
                     <option value="DISCARDED">Descartados</option>
                 </select>
 
-                <button onClick={searchAllPrices} disabled={searching} className="btn-primary" style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                    {searching ? <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} /> : <ShoppingBag size={16} />}
+                <button
+                    onClick={searchAllPrices}
+                    disabled={searching}
+                    className={`btn-primary ${searching ? 'animate-pulse' : ''}`}
+                    style={{ display: "flex", gap: 8, alignItems: "center", minWidth: 160, justifyContent: "center" }}
+                >
+                    {searching ? (
+                        <Loader2 size={18} className="animate-spin" />
+                    ) : (
+                        <ShoppingBag size={18} />
+                    )}
                     {searching ? "Buscando..." : "Buscar Preços"}
                 </button>
             </motion.div>

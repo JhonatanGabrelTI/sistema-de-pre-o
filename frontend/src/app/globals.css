@@ -28,7 +28,8 @@
   padding: 0;
 }
 
-html, body {
+html,
+body {
   height: 100%;
 }
 
@@ -44,13 +45,16 @@ body {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: var(--bg-primary);
 }
+
 ::-webkit-scrollbar-thumb {
   background: var(--border);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: var(--text-muted);
 }
@@ -60,6 +64,7 @@ a {
   color: var(--accent);
   text-decoration: none;
 }
+
 a:hover {
   color: var(--accent-hover);
 }
@@ -72,6 +77,7 @@ a:hover {
   backdrop-filter: blur(20px);
   transition: all 0.2s ease;
 }
+
 .glass-card:hover {
   border-color: rgba(99, 102, 241, 0.3);
   box-shadow: 0 0 20px var(--accent-glow);
@@ -96,11 +102,13 @@ a:hover {
   transition: all 0.2s ease;
   outline: none;
 }
+
 .btn-primary:hover {
   opacity: 0.9;
   transform: translateY(-1px);
   box-shadow: 0 4px 20px var(--accent-glow);
 }
+
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -119,6 +127,7 @@ a:hover {
   transition: all 0.2s ease;
   outline: none;
 }
+
 .btn-secondary:hover {
   border-color: var(--accent);
   background: var(--bg-card-hover);
@@ -135,10 +144,12 @@ a:hover {
   outline: none;
   transition: border-color 0.2s;
 }
+
 .input-field:focus {
   border-color: var(--border-focus);
   box-shadow: 0 0 0 3px var(--accent-glow);
 }
+
 .input-field::placeholder {
   color: var(--text-muted);
 }
@@ -153,26 +164,32 @@ a:hover {
   text-transform: uppercase;
   letter-spacing: 0.5px;
 }
+
 .badge-pending {
   background: rgba(245, 158, 11, 0.15);
   color: #f59e0b;
 }
+
 .badge-approved {
   background: rgba(34, 197, 94, 0.15);
   color: #22c55e;
 }
+
 .badge-discarded {
   background: rgba(239, 68, 68, 0.15);
   color: #ef4444;
 }
+
 .badge-processing {
   background: rgba(99, 102, 241, 0.15);
   color: #6366f1;
 }
+
 .badge-ready {
   background: rgba(34, 197, 94, 0.15);
   color: #22c55e;
 }
+
 .badge-completed {
   background: rgba(139, 92, 246, 0.15);
   color: #a855f7;
@@ -184,6 +201,7 @@ a:hover {
   border-collapse: separate;
   border-spacing: 0;
 }
+
 .data-table th {
   padding: 12px 16px;
   text-align: left;
@@ -194,12 +212,14 @@ a:hover {
   letter-spacing: 0.5px;
   border-bottom: 1px solid var(--border);
 }
+
 .data-table td {
   padding: 14px 16px;
   font-size: 14px;
   border-bottom: 1px solid rgba(42, 42, 58, 0.5);
   transition: background 0.15s;
 }
+
 .data-table tr:hover td {
   background: var(--bg-card-hover);
 }
@@ -210,35 +230,84 @@ a:hover {
     opacity: 0;
     transform: translateY(20px);
   }
+
   to {
     opacity: 1;
     transform: translateY(0);
   }
 }
+
 .animate-fade-in-up {
   animation: fadeInUp 0.5s ease forwards;
 }
 
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px var(--accent-glow); }
-  50% { box-shadow: 0 0 20px var(--accent-glow); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 5px var(--accent-glow);
+  }
+
+  50% {
+    box-shadow: 0 0 20px var(--accent-glow);
+  }
 }
+
 .animate-pulse-glow {
   animation: pulse-glow 2s ease-in-out infinite;
 }
 
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
+
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    var(--bg-card) 25%,
-    var(--bg-card-hover) 50%,
-    var(--bg-card) 75%
-  );
+  background: linear-gradient(90deg,
+      var(--bg-card) 25%,
+      var(--bg-card-hover) 50%,
+      var(--bg-card) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 8px;
+}
+
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes pulse {
+  0% {
+    opacity: 1;
+    transform: scale(1);
+  }
+
+  50% {
+    opacity: 0.7;
+    transform: scale(0.95);
+  }
+
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.animate-spin {
+  animation: spin 1s linear infinite;
+}
+
+.animate-pulse {
+  animation: pulse 1.5s ease-in-out infinite;
 }

@@ -79,15 +79,24 @@ export default function DashboardPage() {
         <div>
             {/* Header */}
             <motion.div
-                initial={{ opacity: 0, y: -10 }}
+                initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
-                style={{ marginBottom: 32 }}
+                transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
+                style={{ marginBottom: 40 }}
             >
-                <h1 style={{ fontSize: 26, fontWeight: 700, marginBottom: 4 }}>
+                <h1 style={{
+                    fontSize: 32,
+                    fontWeight: 800,
+                    marginBottom: 8,
+                    background: "linear-gradient(90deg, #fff 0%, #a855f7 100%)",
+                    WebkitBackgroundClip: "text",
+                    WebkitTextFillColor: "transparent",
+                    display: "inline-block"
+                }}>
                     Olá, {user?.name?.split(" ")[0]} 👋
                 </h1>
-                <p style={{ color: "var(--text-secondary)", fontSize: 15 }}>
-                    Bem-vindo ao seu painel de cotação inteligente
+                <p style={{ color: "var(--text-secondary)", fontSize: 16, maxWidth: 600, lineHeight: 1.5 }}>
+                    Bem-vindo ao seu painel de inteligência de preços. Acompanhe suas cotações e maximize suas margens de lucro.
                 </p>
             </motion.div>
 
@@ -109,42 +118,67 @@ export default function DashboardPage() {
                             variants={cardVariants}
                             initial="hidden"
                             animate="visible"
+                            whileHover={{ y: -5, scale: 1.02, boxShadow: `0 10px 40px ${card.bg}` }}
+                            transition={{ duration: 0.3 }}
                             className="glass-card"
-                            style={{ padding: 24 }}
+                            style={{
+                                padding: 28,
+                                position: "relative",
+                                overflow: "hidden",
+                                borderWidth: "1px",
+                                borderColor: "rgba(255,255,255,0.05)"
+                            }}
                         >
-                            <div
-                                style={{
-                                    display: "flex",
-                                    alignItems: "center",
-                                    justifyContent: "space-between",
-                                    marginBottom: 16,
-                                }}
-                            >
+                            <div style={{
+                                position: "absolute",
+                                top: -20,
+                                right: -20,
+                                width: 100,
+                                height: 100,
+                                background: card.color,
+                                filter: "blur(50px)",
+                                opacity: 0.15,
+                                zIndex: 0,
+                                borderRadius: "50%"
+                            }} />
+
+                            <div style={{ position: "relative", zIndex: 1 }}>
                                 <div
                                     style={{
-                                        width: 42,
-                                        height: 42,
-                                        borderRadius: 12,
-                                        background: card.bg,
                                         display: "flex",
                                         alignItems: "center",
-                                        justifyContent: "center",
+                                        justifyContent: "space-between",
+                                        marginBottom: 20,
                                     }}
                                 >
-                                    <Icon size={22} color={card.color} />
+                                    <div
+                                        style={{
+                                            width: 48,
+                                            height: 48,
+                                            borderRadius: 14,
+                                            background: card.bg,
+                                            display: "flex",
+                                            alignItems: "center",
+                                            justifyContent: "center",
+                                            boxShadow: `0 4px 12px ${card.bg}`,
+                                        }}
+                                    >
+                                        <Icon size={24} color={card.color} strokeWidth={2.5} />
+                                    </div>
                                 </div>
+                                <div
+                                    style={{
+                                        fontSize: 36,
+                                        fontWeight: 800,
+                                        marginBottom: 6,
+                                        fontVariantNumeric: "tabular-nums",
+                                        letterSpacing: "-0.5px"
+                                    }}
+                                >
+                                    {loading ? <div className="skeleton" style={{ width: 80, height: 42, borderRadius: 8 }} /> : card.value}
+                                </div>
+                                <div style={{ fontSize: 14, color: "var(--text-secondary)", fontWeight: 500 }}>{card.label}</div>
                             </div>
-                            <div
-                                style={{
-                                    fontSize: 30,
-                                    fontWeight: 700,
-                                    marginBottom: 4,
-                                    fontVariantNumeric: "tabular-nums",
-                                }}
-                            >
-                                {loading ? <div className="skeleton" style={{ width: 60, height: 36 }} /> : card.value}
-                            </div>
-                            <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>{card.label}</div>
                         </motion.div>
                     );
                 })}
@@ -154,119 +188,136 @@ export default function DashboardPage() {
             <motion.div
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.5 }}
+                transition={{ delay: 0.5, duration: 0.6 }}
+                style={{ marginTop: 40 }}
             >
-                <h2 style={{ fontSize: 18, fontWeight: 600, marginBottom: 16 }}>Ações Rápidas</h2>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 16 }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+                    <div style={{ width: 4, height: 24, background: "var(--accent)", borderRadius: 4 }} />
+                    <h2 style={{ fontSize: 20, fontWeight: 700 }}>Ações Rápidas</h2>
+                </div>
+
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: 20 }}>
                     <Link href="/dashboard/upload" style={{ textDecoration: "none" }}>
-                        <div
-                            className="glass-card"
+                        <motion.div
+                            whileHover={{ y: -4, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="glass-card link-card"
                             style={{
                                 padding: 24,
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 16,
+                                gap: 20,
                                 cursor: "pointer",
+                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 12,
+                                    width: 54,
+                                    height: 54,
+                                    borderRadius: 14,
                                     background: "var(--gradient-primary)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
+                                    boxShadow: "0 8px 20px rgba(139, 92, 246, 0.25)"
                                 }}
                             >
-                                <Upload size={22} color="white" />
+                                <Upload size={24} color="white" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
                                     Novo Upload
                                 </div>
-                                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                                    Envie um PDF com lista de produtos
+                                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                                    Envie um PDF com a lista técnica
                                 </div>
                             </div>
-                            <ArrowRight size={18} color="var(--text-muted)" />
-                        </div>
+                            <ArrowRight size={20} color="var(--text-muted)" />
+                        </motion.div>
                     </Link>
 
                     <Link href="/dashboard/products" style={{ textDecoration: "none" }}>
-                        <div
-                            className="glass-card"
+                        <motion.div
+                            whileHover={{ y: -4, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="glass-card link-card"
                             style={{
                                 padding: 24,
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 16,
+                                gap: 20,
                                 cursor: "pointer",
+                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 12,
-                                    background: "rgba(139,92,246,0.15)",
+                                    width: 54,
+                                    height: 54,
+                                    borderRadius: 14,
+                                    background: "rgba(139,92,246,0.1)",
+                                    border: "1px solid rgba(139,92,246,0.2)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
                                 }}
                             >
-                                <TrendingUp size={22} color="#8b5cf6" />
+                                <TrendingUp size={24} color="#8b5cf6" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
+                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
                                     Ver Produtos
                                 </div>
-                                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                                    Gerencie e analise seus produtos
+                                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                                    Gerencie e analise as margens
                                 </div>
                             </div>
-                            <ArrowRight size={18} color="var(--text-muted)" />
-                        </div>
+                            <ArrowRight size={20} color="var(--text-muted)" />
+                        </motion.div>
                     </Link>
 
                     <Link href="/dashboard/quotation" style={{ textDecoration: "none" }}>
-                        <div
-                            className="glass-card"
+                        <motion.div
+                            whileHover={{ y: -4, scale: 1.01 }}
+                            whileTap={{ scale: 0.98 }}
+                            className="glass-card link-card"
                             style={{
                                 padding: 24,
                                 display: "flex",
                                 alignItems: "center",
-                                gap: 16,
+                                gap: 20,
                                 cursor: "pointer",
+                                transition: "all 0.2s ease"
                             }}
                         >
                             <div
                                 style={{
-                                    width: 48,
-                                    height: 48,
-                                    borderRadius: 12,
-                                    background: "rgba(34,197,94,0.15)",
+                                    width: 54,
+                                    height: 54,
+                                    borderRadius: 14,
+                                    background: "rgba(34,197,94,0.1)",
+                                    border: "1px solid rgba(34,197,94,0.2)",
                                     display: "flex",
                                     alignItems: "center",
                                     justifyContent: "center",
                                     flexShrink: 0,
                                 }}
                             >
-                                <CheckCircle2 size={22} color="#22c55e" />
+                                <CheckCircle2 size={24} color="#22c55e" />
                             </div>
                             <div style={{ flex: 1 }}>
-                                <div style={{ fontWeight: 600, fontSize: 15, color: "var(--text-primary)", marginBottom: 4 }}>
-                                    Orçamentos
+                                <div style={{ fontWeight: 700, fontSize: 16, color: "var(--text-primary)", marginBottom: 4 }}>
+                                    Gerar Orçamentos
                                 </div>
-                                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                                    Gere e exporte seus orçamentos
+                                <div style={{ fontSize: 13, color: "var(--text-secondary)", lineHeight: 1.4 }}>
+                                    Exporte PDFs e planilhas finais
                                 </div>
                             </div>
-                            <ArrowRight size={18} color="var(--text-muted)" />
-                        </div>
+                            <ArrowRight size={20} color="var(--text-muted)" />
+                        </motion.div>
                     </Link>
                 </div>
             </motion.div>

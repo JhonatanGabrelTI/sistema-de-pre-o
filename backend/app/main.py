@@ -1,8 +1,13 @@
 import logging
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
-from app.database import engine, Base
+from app.database import engine, get_db
+from app.models.base import Base
+from app.models.user import User
 from app.routers import auth, projects, products, offers, quotations
+from fastapi import Depends
+from sqlalchemy.orm import Session
+from app.routers.auth import get_current_user
 
 # Import all models so they register with Base
 from app.models import user, project, product, offer, quotation  # noqa: F401
@@ -44,19 +49,32 @@ def health_check():
 
 
 @app.get("/api/dashboard/stats")
-def dashboard_stats():
-    """Basic dashboard statistics endpoint."""
-    from app.database import SessionLocal
+def dashboard_stats(
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user)
+):
+    """Dashboard statistics endpoint scoped to the current user."""
     from app.models.project import Project
     from app.models.product import Product
     from app.models.offer import Offer
 
-    db = SessionLocal()
     try:
-        total_projects = db.query(Project).count()
-        total_products = db.query(Product).count()
-        total_offers = db.query(Offer).count()
-        approved = db.query(Product).filter(Product.status == "APPROVED").count()
+        # User's projects
+        user_projects = db.query(Project.id).filter(Project.user_id == current_user.id).subquery()
+        total_projects = db.query(Project).filter(Project.user_id == current_user.id).count()
+
+        # User's products
+        user_products = db.query(Product.id).filter(Product.project_id.in_(user_projects)).subquery()
+        total_products = db.query(Product).filter(Product.project_id.in_(user_projects)).count()
+
+        # User's offers
+        total_offers = db.query(Offer).filter(Offer.product_id.in_(user_products)).count()
+
+        # User's approved products
+        approved = db.query(Product).filter(
+            Product.project_id.in_(user_products),
+            Product.status == "APPROVED"
+        ).count()
 
         return {
             "total_projects": total_projects,
@@ -64,5 +82,5 @@ def dashboard_stats():
             "total_offers": total_offers,
             "approved_products": approved,
         }
-    finally:
-        db.close()
+    except Exception as e:
+        return {"total_projects": 0, "total_products": 0, "total_offers": 0, "approved_products": 0}

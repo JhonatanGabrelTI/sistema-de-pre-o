@@ -23,11 +23,22 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
     """Scrapes real data from Mercado Livre with improved headers to avoid detection."""
     search_term = product_name.replace(' ', '-')
     url = f"https://lista.mercadolivre.com.br/{search_term}"
+    
+    # Randomize headers to avoid bot detection causing 'empty' results
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    ]
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "User-Agent": random.choice(user_agents),
         "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
         "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
-        "Cache-Control": "max-age=0",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="122", "Google Chrome";v="122"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Upgrade-Insecure-Requests": "1"
     }
     
     offers = []
@@ -46,38 +57,55 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
             
             html = response.text
             
-            # Heuristic 'link-first' approach: Find product links and prices anywhere
-            product_links = re.findall(r'href="(https://[^"]*?mercadolivre\.com\.br/[^"]*?MLB-[^"]*?)"', html, re.IGNORECASE)
-            prices = re.findall(r'andes-money-amount__fraction[^>]*>(.*?)<\/span>', html)
-            titles = re.findall(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', html, re.IGNORECASE)
-
+            # Index-based extraction to guarantee 1:1 match between Link and Price
+            link_matches = list(re.finditer(r'href="(https://[^"]*?mercadolivre\.com\.br/[^"]*?MLB-[^"]*?)"', html, re.IGNORECASE))
+            seen_links = set()
             temp_offers = []
-            for i in range(min(len(product_links), len(prices), 15)):
-                title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else f"Produto {i+1}"
-                price_str = prices[i].replace('.', '')
-                try:
-                    price = float(f"{price_str}.00")
-                except:
+
+            for i, match in enumerate(link_matches):
+                link = match.group(1)
+                clean_link = link.split('?')[0].split('#')[0]
+                if clean_link in seen_links:
                     continue
+                seen_links.add(clean_link)
                 
-                # Official Store / Quality detection
-                is_official = any(k in html.lower() for k in ["loja oficial", "platinum", "best seller", "mais vendido"])
-                is_kit = any(k in title.lower() for k in ["kit", "pacote", "unidades", "conjunto", "atado", "combo"])
+                # Block is from this link to the next link
+                start_pos = match.end()
+                end_pos = link_matches[i+1].start() if i + 1 < len(link_matches) else len(html)
+                block = html[start_pos:end_pos]
                 
-                # Rating prediction: If official store, assume high rating
-                rating = 4.8 if is_official else 4.2
+                # First title and price immediately following the link
+                title_match = re.search(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', block, re.IGNORECASE)
+                price_match = re.search(r'andes-money-amount__fraction[^>]*>(.*?)<\/span>', block)
+                cents_match = re.search(r'andes-money-amount__cents[^>]*>(.*?)<\/span>', block)
                 
-                temp_offers.append({
-                    "marketplace": "Mercado Livre",
-                    "title": title,
-                    "price": price,
-                    "is_kit": is_kit,
-                    "shipping": 0.0,
-                    "delivery_days": 2,
-                    "seller_rating": rating,
-                    "url": product_links[i],
-                    "is_official": is_official
-                })
+                if price_match:
+                    title = re.sub(r'<[^>]+>', '', title_match.group(1)).strip() if title_match else f"Produto ML"
+                    price_int = price_match.group(1).replace('.', '')
+                    price_cents = cents_match.group(1) if cents_match else "00"
+                    
+                    try:
+                        price = float(f"{price_int}.{price_cents}")
+                    except:
+                        continue
+                    
+                    is_official = any(k in block.lower() for k in ["loja oficial", "lojas oficiais", "platinum"])
+                    is_kit = any(k in title.lower() for k in ["kit", "pacote", "unidades", "conjunto", "atado", "combo", "pc", "pcs", "peças"])
+                    
+                    temp_offers.append({
+                        "marketplace": "Mercado Livre",
+                        "title": title[:100],
+                        "price": price,
+                        "is_kit": is_kit,
+                        "shipping": 0.0,
+                        "delivery_days": 2,
+                        "seller_rating": 4.8 if is_official else 4.2,
+                        "url": clean_link,
+                        "is_official": is_official
+                    })
+                    
+                    if len(temp_offers) >= limit * 3: # Buffer for filtering
+                        break
 
             # Cost-Benefit Sort: Non-kits first, then official stores, then lower price
             temp_offers.sort(key=lambda x: (x["is_kit"], not x.get("is_official", False), x["price"]))
@@ -90,13 +118,27 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
 async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
     """Scrapes real data from Amazon Brasil."""
     # Search sorted by customer review to ensure 'otima avaliação'
+    search_term = product_name.replace(' ', '+')
     url = f"https://www.amazon.com.br/s?k={search_term}&s=review-rank"
+    
+    user_agents = [
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36",
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:123.0) Gecko/20100101 Firefox/123.0",
+        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.3 Safari/605.1.15",
+    ]
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+        "User-Agent": random.choice(user_agents),
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Sec-Ch-Ua": '"Not_A Brand";v="8", "Chromium";v="122", "Google Chrome";v="122"',
+        "Sec-Fetch-Dest": "document",
+        "Sec-Fetch-Mode": "navigate",
+        "Sec-Fetch-Site": "none",
+        "Upgrade-Insecure-Requests": "1"
     }
     offers = []
     try:
-        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=12.0) as client:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=15.0) as client:
             response = await client.get(url)
             if response.status_code != 200:
                 return []
@@ -107,15 +149,18 @@ async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, An
             
             for container in containers[:10]:
                 link_match = re.search(r'href="(/[^"]*?/dp/[^"]*?)"', container)
-                price_match = re.search(r'class="a-price-whole"[^>]*>(.*?)<', container)
+                price_whole = re.search(r'class="a-price-whole"[^>]*>(.*?)<', container)
+                price_fraction = re.search(r'class="a-price-fraction"[^>]*>(.*?)<', container)
                 title_match = re.search(r'<h2[^>]*>.*?<span>(.*?)</span>', container, re.DOTALL)
                 
-                if link_match and price_match:
+                if link_match and price_whole:
                     title = title_match.group(1).strip() if title_match else f"{product_name}"
-                    price_str = price_match.group(1).replace('.', '').replace(',', '.')
+                    
+                    p_whole = price_whole.group(1).replace('.', '').replace(',', '')
+                    p_frac = price_fraction.group(1) if price_fraction else "00"
                     
                     try:
-                        price_val = float(re.sub(r'[^\d\.]', '', price_str))
+                        price_val = float(f"{p_whole}.{p_frac}")
                         
                         # Since we sorted by review-rank, assume rating is high (4.5+)
                         offers.append({

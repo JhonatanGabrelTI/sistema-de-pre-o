@@ -60,8 +60,8 @@ async def upload_pdf(
     # Automatic search in background to not block the response
     from app.services.marketplace_service import search_and_save_offers
     if background_tasks:
-        # We need a new session for the background task to avoid closure issues
-        background_tasks.add_task(search_and_save_offers, str(project.id), next(get_db()))
+        # Passing None tells search_and_save_offers to create its own stable DB session
+        background_tasks.add_task(search_and_save_offers, str(project.id), None)
 
     product_count = db.query(Product).filter(Product.project_id == project.id).count()
 

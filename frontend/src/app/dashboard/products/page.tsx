@@ -212,16 +212,19 @@ export default function ProductsPage() {
                 }}
             >
                 <span style={{ fontSize: 13, color: "var(--text-secondary)", whiteSpace: "nowrap" }}>Margem global (%):</span>
-                <input
-                    type="number"
-                    value={globalMargin}
-                    onChange={(e) => setGlobalMargin(e.target.value)}
-                    placeholder="Ex: 15"
-                    className="input-field"
-                    style={{ width: 100, padding: "8px 12px" }}
-                />
-                <button onClick={applyGlobalMargin} className="btn-secondary" style={{ padding: "8px 16px", fontSize: 13 }}>
-                    Aplicar a todos
+                <div style={{ position: "relative", display: "flex", alignItems: "center" }}>
+                    <input
+                        type="number"
+                        value={globalMargin}
+                        onChange={(e) => setGlobalMargin(e.target.value)}
+                        placeholder="Ex: 5"
+                        className="input-field"
+                        style={{ width: 80, paddingRight: 30 }}
+                    />
+                    <span style={{ position: "absolute", right: 10, color: "var(--text-muted)", fontSize: 13 }}>%</span>
+                </div>
+                <button onClick={applyGlobalMargin} className="btn-secondary" style={{ padding: "10px 16px" }}>
+                    Aplicar em Todos
                 </button>
             </div>
 
@@ -271,11 +274,13 @@ export default function ProductsPage() {
                                     <td>{product.quantity}</td>
                                     <td>
                                         <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
-                                            {product.min_price ? `R$ ${product.min_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "---"}
+                                            {product.min_price
+                                                ? `R$ ${product.min_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
+                                                : (searching ? "Buscando..." : "Pendente")}
                                         </div>
-                                        {product.best_marketplace && (
-                                            <div style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
-                                                {product.best_marketplace}
+                                        {product.min_price && (
+                                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "var(--text-secondary)" }}>
+                                                <span>{product.best_offer_marketplace}</span>
                                                 {product.best_offer_url && (
                                                     <a
                                                         href={product.best_offer_url}
@@ -296,13 +301,16 @@ export default function ProductsPage() {
                                         </div>
                                     </td>
                                     <td>
-                                        <input
-                                            type="number"
-                                            value={product.margin}
-                                            onChange={(e) => updateMargin(product.id, parseFloat(e.target.value) || 0)}
-                                            className="input-field"
-                                            style={{ width: 80, padding: "6px 10px", fontSize: 13 }}
-                                        />
+                                        <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                                            <input
+                                                type="number"
+                                                value={product.margin}
+                                                onChange={(e) => updateMargin(product.id, parseFloat(e.target.value) || 0)}
+                                                className="input-field"
+                                                style={{ width: 70, padding: "6px 25px 6px 10px", fontSize: 13 }}
+                                            />
+                                            <span style={{ position: 'absolute', right: 8, color: 'var(--text-muted)', fontSize: 11 }}>%</span>
+                                        </div>
                                     </td>
                                     <td style={{ color: "var(--accent)", fontWeight: 700 }}>
                                         {product.min_price

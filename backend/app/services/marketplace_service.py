@@ -102,22 +102,27 @@ async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, An
             
             for container in containers[:limit]:
                 link_match = re.search(r'href="(/[^"]*?/dp/[^"]*?)"', container)
-                price_match = re.search(r'class="a-price-whole"[^>]*>(.*?)</span>', container)
+                # Amazon prices often have a nested span for decimals
+                price_match = re.search(r'class="a-price-whole"[^>]*>(.*?)<', container)
                 title_match = re.search(r'<h2[^>]*>.*?<span>(.*?)</span>', container, re.DOTALL)
                 
                 if link_match and price_match:
                     title = title_match.group(1).strip() if title_match else f"{product_name}"
+                    # Clean the price string: remove dots (thousands) and replace comma with dot
                     price_str = price_match.group(1).replace('.', '').replace(',', '.')
-                    
-                    offers.append({
-                        "marketplace": "Amazon",
-                        "title": title[:100],
-                        "price": float(price_str),
-                        "shipping": 0.0,
-                        "delivery_days": 3,
-                        "seller_rating": 4.8,
-                        "url": f"https://www.amazon.com.br{link_match.group(1)}"
-                    })
+                    try:
+                        price_val = float(re.sub(r'[^\d\.]', '', price_str))
+                        offers.append({
+                            "marketplace": "Amazon",
+                            "title": title[:100],
+                            "price": price_val,
+                            "shipping": 0.0,
+                            "delivery_days": 3,
+                            "seller_rating": 4.8,
+                            "url": f"https://www.amazon.com.br{link_match.group(1)}"
+                        })
+                    except:
+                        continue
             return offers
     except Exception as e:
         logger.error(f"Amazon Scraper failed: {e}")
@@ -149,38 +154,49 @@ async def search_additional_offer(product_name: str, marketplace: str = None) ->
         
     return offers[0] if offers else None
 
-async def search_and_save_offers(project_id: str, db):
-    """Orchestrate search and save for a project."""
+async def search_and_save_offers(project_id: str, db=None):
+    """Orchestrate search and save for a project. Supports background tasks with new session."""
     from app.models.product import Product
     from app.models.offer import Offer
+    from app.database import SessionLocal
     
-    products = db.query(Product).filter(Product.project_id == project_id).all()
-    total_offers = 0
+    # If no db provided (background task), create new one
+    standalone = False
+    if db is None:
+        db = SessionLocal()
+        standalone = True
+        
+    try:
+        products = db.query(Product).filter(Product.project_id == project_id).all()
+        total_offers = 0
 
-    for product in products:
-        # Check if already has real offers
-        existing = db.query(Offer).filter(Offer.product_id == product.id).count()
-        if existing > 0:
-            continue
+        for product in products:
+            # Check if already has real offers
+            existing = db.query(Offer).filter(Offer.product_id == product.id).count()
+            if existing > 0:
+                continue
 
-        offers_data = await search_marketplace_prices(product.name)
-        if not offers_data:
-            logger.warning(f"No real offers found for: {product.name}")
-            continue
+            offers_data = await search_marketplace_prices(product.name)
+            if not offers_data:
+                logger.warning(f"No real offers found for: {product.name}")
+                continue
 
-        for o in offers_data:
-            offer = Offer(
-                product_id=product.id,
-                marketplace=o["marketplace"],
-                title=o["title"],
-                price=o["price"],
-                shipping=o["shipping"],
-                delivery_days=o["delivery_days"],
-                seller_rating=o["seller_rating"],
-                url=o["url"],
-            )
-            db.add(offer)
-            total_offers += 1
+            for o in offers_data:
+                offer = Offer(
+                    product_id=product.id,
+                    marketplace=o["marketplace"],
+                    title=o["title"],
+                    price=o["price"],
+                    shipping=o["shipping"],
+                    delivery_days=o["delivery_days"],
+                    seller_rating=o["seller_rating"],
+                    url=o["url"],
+                )
+                db.add(offer)
+                total_offers += 1
 
-    db.commit()
-    return total_offers
+        db.commit()
+        return total_offers
+    finally:
+        if standalone:
+            db.close()

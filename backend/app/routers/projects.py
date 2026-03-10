@@ -75,6 +75,56 @@ async def upload_pdf(
     )
 
 
+@router.post("/manual", response_model=ProjectResponse)
+async def upload_manual(
+    name: str = Form("Projeto Manual"),
+    product_name: str = Form(...),
+    quantity: int = Form(1),
+    background_tasks: BackgroundTasks = None,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    # Create project
+    project = Project(
+        user_id=current_user.id,
+        name=name,
+        pdf_filename="Manual Input",
+        pdf_raw_text=f"{product_name} - {quantity} un",
+        status="PROCESSING",
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+
+    # Create manual product
+    product = Product(
+        project_id=project.id,
+        name=product_name,
+        quantity=quantity,
+    )
+    db.add(product)
+
+    project.status = "READY"
+    db.commit()
+    db.refresh(project)
+
+    # Automatic search in background to not block the response
+    from app.services.marketplace_service import search_and_save_offers
+    if background_tasks:
+        background_tasks.add_task(search_and_save_offers, str(project.id), None)
+
+    product_count = db.query(Product).filter(Product.project_id == project.id).count()
+
+    return ProjectResponse(
+        id=str(project.id),
+        name=project.name,
+        pdf_filename=project.pdf_filename,
+        status=project.status,
+        created_at=project.created_at,
+        product_count=product_count,
+    )
+
+
 @router.get("", response_model=ProjectListResponse)
 def list_projects(
     db: Session = Depends(get_db),

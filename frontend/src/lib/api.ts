@@ -61,6 +61,13 @@ export const api = {
             formData.append("name", name);
             return request("/api/projects/upload", { method: "POST", body: formData });
         },
+        uploadManual: (projectName: string, productName: string, quantity: number) => {
+            const formData = new FormData();
+            formData.append("name", projectName);
+            formData.append("product_name", productName);
+            formData.append("quantity", quantity.toString());
+            return request("/api/projects/manual", { method: "POST", body: formData });
+        },
         delete: (id: string) => request(`/api/projects/${id}`, { method: "DELETE" }),
     },
 

@@ -198,11 +198,20 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
 
                     {/* Mobile Logo (Visible only on mobile) */}
-                    <div className="flex md:hidden items-center gap-2">
-                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                    <div className="flex md:hidden items-center gap-3">
+                        <div style={{
+                            width: 32,
+                            height: 32,
+                            borderRadius: 8,
+                            background: "var(--gradient-primary)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            boxShadow: "0 0 16px rgba(99, 102, 241, 0.3)"
+                        }}>
                             <LayoutDashboard size={16} color="white" />
                         </div>
-                        <span style={{ fontWeight: 600, fontSize: 15, color: "white" }}>Preço Inteligente</span>
+                        <span className="gradient-text" style={{ fontWeight: 700, fontSize: 18, letterSpacing: "-0.5px" }}>Preço Inteligente</span>
                     </div>
 
                     {/* Right utilities */}

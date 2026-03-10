@@ -1,3 +1,5 @@
+import httpx
+import re
 import random
 import hashlib
 import logging
@@ -58,27 +60,73 @@ def _generate_simulated_offer(product_name: str, marketplace: str, index: int = 
     }
 
 
+async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """Scrapes real data from Mercado Livre public search."""
+    url = f"https://lista.mercadolivre.com.br/{product_name.replace(' ', '-')}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+    }
+    
+    offers = []
+    try:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                logger.error(f"ML Scraper: Error {response.status_code}")
+                return []
+            
+            html = response.text
+            
+            # Simple regex to find items
+            # ML structure: <h2 class="ui-search-item__title">...</h2>
+            # Price: <span class="andes-money-amount__fraction">...</span>
+            
+            items = re.findall(r'<div class="ui-search-result__wrapper".*?<\/div><\/div><\/div>', html, re.DOTALL)
+            
+            for item in items[:limit]:
+                title_match = re.search(r'<h2.*?class="ui-search-item__title".*?>(.*?)<\/h2>', item)
+                price_match = re.search(r'<span class="andes-money-amount__fraction".*?>(.*?)</span>', item)
+                link_match = re.search(r'<a.*?class="ui-search-link".*?href="(.*?)"', item)
+                
+                if title_match and price_match and link_match:
+                    price_str = price_match.group(1).replace('.', '')
+                    offers.append({
+                        "marketplace": "Mercado Livre",
+                        "title": title_match.group(1).strip(),
+                        "price": float(price_str.replace(',', '.')),
+                        "shipping": 0.0, # Hard to parse reliably with simple regex
+                        "delivery_days": 2,
+                        "seller_rating": 4.5,
+                        "url": link_match.group(1)
+                    })
+            
+            return offers
+    except Exception as e:
+        logger.error(f"ML Scraper failed: {e}")
+        return []
+
 async def search_marketplace_prices(product_name: str, num_offers: int = 3) -> List[Dict[str, Any]]:
     """Search for product prices across all marketplaces.
     
-    Currently uses simulated data. Replace with real API calls when available.
-    
-    To integrate real APIs:
-    1. Mercado Livre: Use official MeLi API (https://developers.mercadolivre.com.br)
-    2. Shopee: Use Shopee Open Platform API
-    3. Amazon: Use Product Advertising API (PAAPI)
-    
-    Each integration should return the same dict structure:
-    {marketplace, title, price, shipping, delivery_days, seller_rating, url}
+    Attempts to scrape real data from Mercado Livre, falls back to simulation for others or if scraping fails.
     """
     offers = []
     
-    for marketplace in MARKETPLACES:
+    # Try real scraping for ML
+    ml_offers = await _scrape_mercado_livre(product_name, num_offers)
+    if ml_offers:
+        offers.extend(ml_offers)
+    else:
+        # Fallback for ML if scraping failed
         for i in range(num_offers):
-            offer = _generate_simulated_offer(product_name, marketplace, i)
-            offers.append(offer)
+            offers.append(_generate_simulated_offer(product_name, "Mercado Livre", i))
     
-    logger.info(f"Generated {len(offers)} simulated offers for '{product_name}'")
+    # Current simulation for others (to be expanded)
+    for marketplace in ["Shopee", "Amazon"]:
+        for i in range(num_offers):
+            offers.append(_generate_simulated_offer(product_name, marketplace, i))
+    
+    logger.info(f"Retrieved {len(offers)} offers for '{product_name}'")
     return offers
 
 

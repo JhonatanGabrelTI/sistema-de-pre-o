@@ -155,6 +155,7 @@ async def get_another_offer(
 @router.post("/search-all/{project_id}")
 async def search_all_products(
     project_id: str,
+    force: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -164,6 +165,14 @@ async def search_all_products(
     ).first()
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
+
+    if force:
+        # Delete all existing offers for products in this project to allow a fresh start
+        from app.models.product import Product
+        product_ids = db.query(Product.id).filter(Product.project_id == project_id).all()
+        id_list = [str(p_id[0]) for p_id in product_ids]
+        db.query(Offer).filter(Offer.product_id.in_(id_list)).delete(synchronize_session=False)
+        db.commit()
 
     total_offers = await search_and_save_offers(project_id, db)
     return {"detail": f"Busca concluída: {total_offers} ofertas encontradas"}

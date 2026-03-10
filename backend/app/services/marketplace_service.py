@@ -7,69 +7,38 @@ from typing import List, Dict, Any
 
 logger = logging.getLogger(__name__)
 
-# Simulated marketplace data — ready to be replaced with real API calls
 MARKETPLACES = ["Mercado Livre", "Shopee", "Amazon"]
 
 MARKETPLACE_URLS = {
-    "Mercado Livre": "https://www.mercadolivre.com.br/busca?q=",
+    "Mercado Livre": "https://lista.mercadolivre.com.br/",
     "Shopee": "https://shopee.com.br/search?keyword=",
     "Amazon": "https://www.amazon.com.br/s?k=",
 }
 
-
-def _generate_simulated_price(product_name: str, marketplace: str) -> float:
-    """Generate a deterministic but realistic simulated price based on product name."""
-    seed = hashlib.md5(f"{product_name}:{marketplace}".encode()).hexdigest()
-    base = int(seed[:8], 16) % 500 + 20  # Range 20-520
-    variation = (int(seed[8:12], 16) % 100) / 100  # 0-0.99
-    return round(base + variation * 50, 2)
-
-
 def _generate_simulated_offer(product_name: str, marketplace: str, index: int = 0) -> Dict[str, Any]:
-    """Generate a single simulated marketplace offer."""
-    seed_str = f"{product_name}:{marketplace}:{index}"
-    seed = hashlib.md5(seed_str.encode()).hexdigest()
-    
-    base_price = _generate_simulated_price(product_name, marketplace)
-    price_variation = (int(seed[:4], 16) % 30 - 15) / 100  # -15% to +15%
-    price = round(base_price * (1 + price_variation), 2)
-    
-    shipping = round((int(seed[4:8], 16) % 50), 2) if int(seed[8:10], 16) % 3 != 0 else 0.0
-    delivery_days = int(seed[10:12], 16) % 15 + 1
-    seller_rating = round(3.5 + (int(seed[12:14], 16) % 15) / 10, 1)
-    
-    search_query = product_name.replace(" ", "+")
-    url = f"{MARKETPLACE_URLS[marketplace]}{search_query}"
-    
-    titles = [
-        f"{product_name} - Oferta {marketplace}",
-        f"{product_name} Original - Envio Rápido",
-        f"{product_name} - Melhor Preço",
-        f"{product_name} Premium - Garantia",
-    ]
-    title_idx = int(seed[14:16], 16) % len(titles)
-    
-    return {
-        "marketplace": marketplace,
-        "title": titles[title_idx],
-        "price": price,
-        "shipping": shipping,
-        "delivery_days": delivery_days,
-        "seller_rating": min(seller_rating, 5.0),
-        "url": url,
-    }
-
+    """NO LONGER USED: Returning None to signify no real data found."""
+    return None
 
 async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
-    """Scrapes real data from Mercado Livre public search."""
-    url = f"https://lista.mercadolivre.com.br/{product_name.replace(' ', '-')}"
+    """Scrapes real data from Mercado Livre with improved headers to avoid detection."""
+    search_term = product_name.replace(' ', '-')
+    url = f"https://lista.mercadolivre.com.br/{search_term}"
     headers = {
-        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.0.0 Safari/537.36",
+        "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+        "Accept-Language": "pt-BR,pt;q=0.9,en-US;q=0.8,en;q=0.7",
+        "Cache-Control": "max-age=0",
     }
     
     offers = []
     try:
-        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=10.0) as client:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=12.0) as client:
+            # First visit home to get cookies
+            try:
+                await client.get("https://www.mercadolivre.com.br/", timeout=5.0)
+            except:
+                pass
+            
             response = await client.get(url)
             if response.status_code != 200:
                 logger.error(f"ML Scraper: Error {response.status_code}")
@@ -78,24 +47,20 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
             html = response.text
             
             # Heuristic 'link-first' approach: Find product links and prices anywhere
-            # Product links typically contain 'MLB-' (Mercado Livre Brasil)
-            # Prices are often near the text/title
-            
-            # 1. Find all product links
             product_links = re.findall(r'href="(https://[^"]*?mercadolivre\.com\.br/[^"]*?MLB-[^"]*?)"', html, re.IGNORECASE)
-            # 2. Find all prices
             prices = re.findall(r'andes-money-amount__fraction[^>]*>(.*?)<\/span>', html)
-            # 3. Find all titles (loosely)
             titles = re.findall(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', html, re.IGNORECASE)
 
-            # Zip them together as best as possible
             temp_offers = []
-            for i in range(min(len(product_links), len(prices), 10)): # Check more to filter
+            for i in range(min(len(product_links), len(prices), 10)):
                 title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else f"Produto {i+1}"
                 price_str = prices[i].replace('.', '')
-                price = float(f"{price_str}.00")
+                try:
+                    price = float(f"{price_str}.00")
+                except:
+                    continue
                 
-                # Kit detection: Often items with "kit", "pacote", "unidades", "conjunto" are MUCH more expensive
+                # Kit detection
                 is_kit = any(k in title.lower() for k in ["kit", "pacote", "unidades", "conjunto", "atado", "combo"])
                 
                 temp_offers.append({
@@ -109,54 +74,83 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
                     "url": product_links[i]
                 })
 
-            # Preference logic:
-            # 1. Non-kits first
-            # 2. Lower prices first (usually means unit vs bundle)
+            # Sort: Prioritize non-kits and lower prices
             temp_offers.sort(key=lambda x: (x["is_kit"], x["price"]))
             
-            offers = []
-            for o in temp_offers[:limit]:
-                del o["is_kit"] # Remove temp field
-                offers.append(o)
-
-            return offers
+            return [ {k: v for k, v in o.items() if k != "is_kit"} for o in temp_offers[:limit] ]
     except Exception as e:
         logger.error(f"ML Scraper failed: {e}")
         return []
 
+async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
+    """Scrapes real data from Amazon Brasil."""
+    search_term = product_name.replace(' ', '+')
+    url = f"https://www.amazon.com.br/s?k={search_term}"
+    headers = {
+        "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    }
+    offers = []
+    try:
+        async with httpx.AsyncClient(headers=headers, follow_redirects=True, timeout=12.0) as client:
+            response = await client.get(url)
+            if response.status_code != 200:
+                return []
+            
+            html = response.text
+            # Identify single product containers
+            containers = re.findall(r'<div[^>]*data-component-type="s-search-result".*?<\/div><\/div><\/div><\/div><\/div>', html, re.DOTALL)
+            
+            for container in containers[:limit]:
+                link_match = re.search(r'href="(/[^"]*?/dp/[^"]*?)"', container)
+                price_match = re.search(r'class="a-price-whole"[^>]*>(.*?)</span>', container)
+                title_match = re.search(r'<h2[^>]*>.*?<span>(.*?)</span>', container, re.DOTALL)
+                
+                if link_match and price_match:
+                    title = title_match.group(1).strip() if title_match else f"{product_name}"
+                    price_str = price_match.group(1).replace('.', '').replace(',', '.')
+                    
+                    offers.append({
+                        "marketplace": "Amazon",
+                        "title": title[:100],
+                        "price": float(price_str),
+                        "shipping": 0.0,
+                        "delivery_days": 3,
+                        "seller_rating": 4.8,
+                        "url": f"https://www.amazon.com.br{link_match.group(1)}"
+                    })
+            return offers
+    except Exception as e:
+        logger.error(f"Amazon Scraper failed: {e}")
+        return []
+
 async def search_marketplace_prices(product_name: str, num_offers: int = 3) -> List[Dict[str, Any]]:
-    """Search for product prices across all marketplaces.
-    
-    Attempts to scrape real data from Mercado Livre, falls back to simulation for others or if scraping fails.
-    """
+    """Search for product prices across real marketplaces only."""
     offers = []
     
-    # Try real scraping for ML
+    # Try Mercado Livre first
     ml_offers = await _scrape_mercado_livre(product_name, num_offers)
     if ml_offers:
         offers.extend(ml_offers)
-    else:
-        # Fallback for ML if scraping failed
-        for i in range(num_offers):
-            offers.append(_generate_simulated_offer(product_name, "Mercado Livre", i))
     
-    # Current simulation for others (to be expanded)
-    for marketplace in ["Shopee", "Amazon"]:
-        for i in range(num_offers):
-            offers.append(_generate_simulated_offer(product_name, marketplace, i))
+    # Try Amazon second
+    amz_offers = await _scrape_amazon(product_name, num_offers)
+    if amz_offers:
+        offers.extend(amz_offers)
     
-    logger.info(f"Retrieved {len(offers)} offers for '{product_name}'")
+    logger.info(f"Retrieved {len(offers)} real offers for '{product_name}'")
     return offers
 
-
 async def search_additional_offer(product_name: str, marketplace: str = None) -> Dict[str, Any]:
-    """Search for one additional offer (triggered by 'Outra oferta' button)."""
-    mp = marketplace or random.choice(MARKETPLACES)
-    index = random.randint(10, 99)
-    return _generate_simulated_offer(product_name, mp, index)
+    """Search for one additional real offer."""
+    if marketplace == "Amazon":
+        offers = await _scrape_amazon(product_name, 1)
+    else:
+        offers = await _scrape_mercado_livre(product_name, 1) or await _scrape_amazon(product_name, 1)
+        
+    return offers[0] if offers else None
 
 async def search_and_save_offers(project_id: str, db):
-    """Refactored logic to search and save offers for an entire project."""
+    """Orchestrate search and save for a project."""
     from app.models.product import Product
     from app.models.offer import Offer
     
@@ -164,12 +158,16 @@ async def search_and_save_offers(project_id: str, db):
     total_offers = 0
 
     for product in products:
-        # Skip if already has offers
+        # Check if already has real offers
         existing = db.query(Offer).filter(Offer.product_id == product.id).count()
         if existing > 0:
             continue
 
         offers_data = await search_marketplace_prices(product.name)
+        if not offers_data:
+            logger.warning(f"No real offers found for: {product.name}")
+            continue
+
         for o in offers_data:
             offer = Offer(
                 product_id=product.id,

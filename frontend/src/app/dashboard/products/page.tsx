@@ -80,7 +80,7 @@ export default function ProductsPage() {
         if (!selectedProject) return;
         setSearching(true);
         try {
-            await api.offers.searchAll(selectedProject);
+            await api.offers.searchAll(selectedProject, true);
             // Refresh products to show updated statuses/counts
             const data: any = await api.products.list(selectedProject);
             setProducts(data);

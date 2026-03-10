@@ -91,8 +91,8 @@ export const api = {
         stats: (productId: string) => request(`/api/offers/${productId}/stats`),
         another: (productId: string) =>
             request(`/api/offers/${productId}/another`, { method: "POST" }),
-        searchAll: (projectId: string) =>
-            request(`/api/offers/search-all/${projectId}`, { method: "POST" }),
+        searchAll: (projectId: string, force: boolean = false) =>
+            request(`/api/offers/search-all/${projectId}${force ? '?force=true' : ''}`, { method: "POST" }),
     },
 
     quotations: {

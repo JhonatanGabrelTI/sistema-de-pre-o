@@ -229,9 +229,10 @@ export default function ProductsPage() {
                         <tr>
                             <th>Produto</th>
                             <th>Qtd</th>
-                            <th>Custo (Mercado)</th>
+                            <th>Custo Unit.</th>
+                            <th>Custo Total</th>
                             <th>Margem (%)</th>
-                            <th>Sugestão Venda</th>
+                            <th>Sugestão Venda (Unid.)</th>
                             <th>Status</th>
                             <th>Ações</th>
                         </tr>
@@ -249,7 +250,7 @@ export default function ProductsPage() {
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={5} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                                     <Package size={40} style={{ opacity: 0.3, marginBottom: 8 }} />
                                     <div>Nenhum produto encontrado</div>
                                 </td>
@@ -279,6 +280,11 @@ export default function ProductsPage() {
                                                 )}
                                             </div>
                                         )}
+                                    </td>
+                                    <td>
+                                        <div style={{ color: "var(--text-muted)", fontSize: 13 }}>
+                                            {product.min_price ? `R$ ${(product.min_price * product.quantity).toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "---"}
+                                        </div>
                                     </td>
                                     <td>
                                         <input

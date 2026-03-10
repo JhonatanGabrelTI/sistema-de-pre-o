@@ -62,20 +62,13 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
     };
 
     return (
-        <div style={{ display: "flex", height: "100vh", overflow: "hidden", background: "var(--bg-primary)" }}>
-            {/* Sidebar */}
+        <div className="flex flex-col md:flex-row w-full h-screen overflow-hidden" style={{ background: "var(--bg-primary)" }}>
+            {/* Sidebar (Desktop) */}
             <motion.aside
                 animate={{ width: collapsed ? 72 : 260 }}
                 transition={{ duration: 0.3, ease: [0.16, 1, 0.3, 1] }}
-                style={{
-                    background: "var(--bg-secondary)",
-                    borderRight: "1px solid var(--border)",
-                    display: "flex",
-                    flexDirection: "column",
-                    flexShrink: 0,
-                    overflow: "hidden",
-                    zIndex: 20,
-                }}
+                className="hidden md:flex flex-col flex-shrink-0 z-20 overflow-hidden border-r border-[var(--border)]"
+                style={{ background: "var(--bg-secondary)" }}
             >
                 {/* Logo area */}
                 <div
@@ -181,20 +174,14 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
             <div style={{ flex: 1, display: "flex", flexDirection: "column", overflow: "hidden" }}>
 
                 {/* Topbar */}
-                <header style={{
+                <header className="flex items-center justify-between px-4 md:px-8 border-b border-[var(--border)] z-10" style={{
                     height: 72,
-                    borderBottom: "1px solid var(--border)",
-                    display: "flex",
-                    alignItems: "center",
-                    justifyContent: "space-between",
-                    padding: "0 32px",
                     background: "rgba(0, 0, 0, 0.5)",
                     backdropFilter: "blur(12px)",
                     WebkitBackdropFilter: "blur(12px)",
-                    zIndex: 10,
                 }}>
                     {/* Search Mock */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 12, width: "100%", maxWidth: 400 }}>
+                    <div className="hidden md:flex items-center gap-3 w-full max-w-[400px]">
                         <Search size={18} color="var(--text-muted)" />
                         <input
                             type="text"
@@ -210,8 +197,16 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                         />
                     </div>
 
+                    {/* Mobile Logo (Visible only on mobile) */}
+                    <div className="flex md:hidden items-center gap-2">
+                        <div style={{ width: 32, height: 32, borderRadius: 8, background: "var(--accent)", display: "flex", alignItems: "center", justifyContent: "center" }}>
+                            <LayoutDashboard size={16} color="white" />
+                        </div>
+                        <span style={{ fontWeight: 600, fontSize: 15, color: "white" }}>Preço Inteligente</span>
+                    </div>
+
                     {/* Right utilities */}
-                    <div style={{ display: "flex", alignItems: "center", gap: 20 }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: 16 }}>
                         <button style={{ background: "none", border: "none", color: "var(--text-secondary)", cursor: "pointer", position: "relative" }}>
                             <Bell size={20} />
                             <span style={{ position: "absolute", top: 0, right: 0, width: 8, height: 8, background: "var(--accent)", borderRadius: "50%" }}></span>
@@ -246,17 +241,25 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
                     </div>
                 </header>
 
-                <main
-                    style={{
-                        flex: 1,
-                        overflowY: "auto",
-                        overflowX: "hidden",
-                    }}
-                >
-                    <div style={{ padding: "32px", maxWidth: 1280, margin: "0 auto" }}>
+                <main className="flex-1 overflow-y-auto overflow-x-hidden pb-20 md:pb-0">
+                    <div className="p-4 md:p-8 max-w-7xl mx-auto">
                         {children}
                     </div>
                 </main>
+
+                {/* Mobile Bottom Navigation */}
+                <nav className="md:hidden fixed bottom-0 left-0 right-0 bg-[var(--bg-secondary)] border-t border-[var(--border)] flex justify-around p-2 z-50">
+                    {navItems.map((item) => {
+                        const isActive = pathname === item.href;
+                        const Icon = item.icon;
+                        return (
+                            <Link key={item.href} href={item.href} className="flex flex-col items-center p-2 rounded-lg" style={{ color: isActive ? "var(--text-primary)" : "var(--text-muted)" }}>
+                                <Icon size={20} color={isActive ? "var(--accent)" : "currentColor"} />
+                                <span style={{ fontSize: 10, marginTop: 4, fontWeight: isActive ? 600 : 400 }}>{item.label}</span>
+                            </Link>
+                        );
+                    })}
+                </nav>
             </div>
         </div>
     );

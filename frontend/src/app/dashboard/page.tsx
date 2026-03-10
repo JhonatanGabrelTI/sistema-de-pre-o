@@ -92,7 +92,7 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: -20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-                style={{ marginBottom: 40, display: "flex", justifyContent: "space-between", alignItems: "flex-end" }}
+                className="flex flex-col md:flex-row justify-between items-start md:items-end gap-5 mb-10"
             >
                 <div>
                     <h1 style={{
@@ -108,12 +108,12 @@ export default function DashboardPage() {
                         Bem-vindo de volta, {user?.name?.split(" ")[0]}. Aqui está o resumo das suas análises de preços.
                     </p>
                 </div>
-                <div style={{ display: "flex", gap: 12 }}>
-                    <button className="btn-secondary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                        <ArrowRight size={16} /> Exportar Relatório
+                <div className="flex flex-row w-full md:w-auto gap-3 mt-4 md:mt-0">
+                    <button className="btn-secondary flex-1 md:flex-none" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                        <ArrowRight size={16} /> <span className="hidden sm:inline">Exportar Relatório</span><span className="sm:hidden">Exportar</span>
                     </button>
-                    <Link href="/dashboard/upload">
-                        <button className="btn-primary" style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <Link href="/dashboard/upload" className="flex-1 md:flex-none">
+                        <button className="btn-primary w-full" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                             <Upload size={16} /> Nova Análise
                         </button>
                     </Link>
@@ -190,10 +190,10 @@ export default function DashboardPage() {
                 initial={{ opacity: 0, y: 20 }}
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: 0.3, duration: 0.6 }}
-                style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: 20, marginBottom: 40 }}
+                className="grid grid-cols-1 lg:grid-cols-3 gap-5 mb-10"
             >
                 {/* Area Chart */}
-                <div className="glass-card" style={{ padding: 24 }}>
+                <div className="glass-card lg:col-span-2" style={{ padding: 24 }}>
                     <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 24 }}>
                         <div>
                             <h3 style={{ fontSize: 16, fontWeight: 600, color: "var(--text-primary)" }}>Atividade de Análise</h3>

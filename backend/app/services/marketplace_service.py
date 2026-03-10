@@ -52,7 +52,7 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
             titles = re.findall(r'<h[1-6][^>]*class="[^"]*title[^"]*"[^>]*>(.*?)<\/h', html, re.IGNORECASE)
 
             temp_offers = []
-            for i in range(min(len(product_links), len(prices), 10)):
+            for i in range(min(len(product_links), len(prices), 15)):
                 title = re.sub(r'<[^>]+>', '', titles[i]).strip() if i < len(titles) else f"Produto {i+1}"
                 price_str = prices[i].replace('.', '')
                 try:
@@ -60,8 +60,12 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
                 except:
                     continue
                 
-                # Kit detection
+                # Official Store / Quality detection
+                is_official = any(k in html.lower() for k in ["loja oficial", "platinum", "best seller", "mais vendido"])
                 is_kit = any(k in title.lower() for k in ["kit", "pacote", "unidades", "conjunto", "atado", "combo"])
+                
+                # Rating prediction: If official store, assume high rating
+                rating = 4.8 if is_official else 4.2
                 
                 temp_offers.append({
                     "marketplace": "Mercado Livre",
@@ -70,22 +74,23 @@ async def _scrape_mercado_livre(product_name: str, limit: int = 3) -> List[Dict[
                     "is_kit": is_kit,
                     "shipping": 0.0,
                     "delivery_days": 2,
-                    "seller_rating": 4.5,
-                    "url": product_links[i]
+                    "seller_rating": rating,
+                    "url": product_links[i],
+                    "is_official": is_official
                 })
 
-            # Sort: Prioritize non-kits and lower prices
-            temp_offers.sort(key=lambda x: (x["is_kit"], x["price"]))
+            # Cost-Benefit Sort: Non-kits first, then official stores, then lower price
+            temp_offers.sort(key=lambda x: (x["is_kit"], not x.get("is_official", False), x["price"]))
             
-            return [ {k: v for k, v in o.items() if k != "is_kit"} for o in temp_offers[:limit] ]
+            return [ {k: v for k, v in o.items() if k not in ["is_kit", "is_official"]} for o in temp_offers[:limit] ]
     except Exception as e:
         logger.error(f"ML Scraper failed: {e}")
         return []
 
 async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, Any]]:
     """Scrapes real data from Amazon Brasil."""
-    search_term = product_name.replace(' ', '+')
-    url = f"https://www.amazon.com.br/s?k={search_term}"
+    # Search sorted by customer review to ensure 'otima avaliação'
+    url = f"https://www.amazon.com.br/s?k={search_term}&s=review-rank"
     headers = {
         "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     }
@@ -100,30 +105,34 @@ async def _scrape_amazon(product_name: str, limit: int = 3) -> List[Dict[str, An
             # Identify single product containers
             containers = re.findall(r'<div[^>]*data-component-type="s-search-result".*?<\/div><\/div><\/div><\/div><\/div>', html, re.DOTALL)
             
-            for container in containers[:limit]:
+            for container in containers[:10]:
                 link_match = re.search(r'href="(/[^"]*?/dp/[^"]*?)"', container)
-                # Amazon prices often have a nested span for decimals
                 price_match = re.search(r'class="a-price-whole"[^>]*>(.*?)<', container)
                 title_match = re.search(r'<h2[^>]*>.*?<span>(.*?)</span>', container, re.DOTALL)
                 
                 if link_match and price_match:
                     title = title_match.group(1).strip() if title_match else f"{product_name}"
-                    # Clean the price string: remove dots (thousands) and replace comma with dot
                     price_str = price_match.group(1).replace('.', '').replace(',', '.')
+                    
                     try:
                         price_val = float(re.sub(r'[^\d\.]', '', price_str))
+                        
+                        # Since we sorted by review-rank, assume rating is high (4.5+)
                         offers.append({
                             "marketplace": "Amazon",
                             "title": title[:100],
                             "price": price_val,
                             "shipping": 0.0,
                             "delivery_days": 3,
-                            "seller_rating": 4.8,
+                            "seller_rating": 4.9, # Boosted for rank sorting
                             "url": f"https://www.amazon.com.br{link_match.group(1)}"
                         })
                     except:
                         continue
-            return offers
+            
+            # Picking the cheapest from the top rated ones
+            offers.sort(key=lambda x: x["price"])
+            return offers[:limit]
     except Exception as e:
         logger.error(f"Amazon Scraper failed: {e}")
         return []

@@ -13,6 +13,7 @@ import {
     ShoppingBag,
     Loader2,
     Trash2,
+    ExternalLink,
 } from "lucide-react";
 
 export default function ProductsPage() {
@@ -263,7 +264,20 @@ export default function ProductsPage() {
                                             {product.min_price ? `R$ ${product.min_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "---"}
                                         </div>
                                         {product.best_marketplace && (
-                                            <div style={{ fontSize: 10, color: "var(--text-muted)" }}>{product.best_marketplace}</div>
+                                            <div style={{ fontSize: 10, color: "var(--text-muted)", display: "flex", alignItems: "center", gap: 4 }}>
+                                                {product.best_marketplace}
+                                                {product.best_offer_url && (
+                                                    <a
+                                                        href={product.best_offer_url}
+                                                        target="_blank"
+                                                        rel="noopener noreferrer"
+                                                        style={{ color: "var(--accent)", display: "flex" }}
+                                                        title="Ver no site"
+                                                    >
+                                                        <ExternalLink size={10} />
+                                                    </a>
+                                                )}
+                                            </div>
                                         )}
                                     </td>
                                     <td>

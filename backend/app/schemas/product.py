@@ -13,6 +13,7 @@ class ProductResponse(BaseModel):
     margin: float
     min_price: Optional[float] = None
     best_marketplace: Optional[str] = None
+    best_offer_url: Optional[str] = None
     created_at: datetime
 
     class Config:

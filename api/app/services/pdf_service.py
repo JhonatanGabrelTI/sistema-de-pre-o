@@ -10,12 +10,12 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 class ItemExtracted(BaseModel):
-    numero_item: int
-    descricao: str
-    quantidade: float
-    unidade_medida: str
-    valor_unitario_estimado: Optional[float]
-    valor_total_estimado: Optional[float]
+    numero_item: Optional[str] = Field(None, description="O número ou código do item. (ex: '1', '01', 'item 2').")
+    descricao: str = Field(..., description="Nome e descrição do produto. IMPORTANTE: Separe e não inclua aqui a quantidade, valores ou unidade de medida.")
+    quantidade: Optional[float] = Field(None, description="Apenas a quantidade explícita do produto em formato numérico.")
+    unidade_medida: Optional[str] = Field(None, description="Apenas a unidade (Ex: Unid., Cx., KG, L).")
+    valor_unitario_estimado: Optional[float] = Field(None, description="Valor ou preço unitário numérico (ex: 2.63).")
+    valor_total_estimado: Optional[float] = Field(None, description="Valor ou preço total numérico.")
 
 class LoteExtracted(BaseModel):
     numero_lote: Optional[str] = Field(None, description="Identificador do lote (ex: 1, 2, 'Lote Único')")
@@ -66,13 +66,17 @@ def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
         import fitz # PyMuPDF
         doc = fitz.open(stream=file_bytes, filetype="pdf")
         
-        # Take up to 5 pages to avoid context token limits/cost
         client = OpenAI(api_key=api_key)
+        system_prompt = (
+            "Atue como um extrator de dados de alta precisão. Leia o edital e localize a lista de produtos/serviços que serão comprados.\n\n"
+            "Regras absolutas:\n"
+            "1. Separe RIGOROSAMENTE a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item nos campos corretos.\n"
+            "2. A 'descricao' não deve conter quantidades ou valores.\n"
+            "3. Se não encontrar uma lista de compras, retorne 'documento_valido' como false e 'lotes' vazio [].\n"
+            "4. Responda APENAS o JSON."
+        )
         messages = [
-            {
-                "role": "system", 
-                "content": "Atue como um extrator de dados de alta precisão. Sua tarefa é ler imagens de editais e localizar a lista de produtos ou serviços que serão comprados.\n\nRegra absoluta:\n- Extraia: Item, Descrição, Quantidade, Unidade e Valor Unitário Estimado.\n- Se não encontrar uma lista de compras, retorne documento_valido=false e lotes vazios.\n- Responda APENAS em JSON."
-            }
+            {"role": "system", "content": system_prompt}
         ]
         
         user_content = [{"type": "text", "text": "Extraia os itens destas páginas de edital:"}]
@@ -113,11 +117,12 @@ def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
     try:
         client = OpenAI(api_key=api_key)
         system_prompt = (
-            "Atue como um extrator de dados. Leia o texto deste edital e localize a lista de produtos ou serviços que serão comprados.\n\n"
-            "Regras:\n"
-            "1. Extraia Item, Descrição, Quantidade, Unidade e Valor Unitário.\n"
-            "2. Se não encontrar uma lista de compras, retorne documento_valido=false.\n"
-            "3. Responda APENAS o JSON estruturado."
+            "Atue como um extrator de dados de alta precisão. Leia o texto do edital e localize a lista de produtos/serviços que serão comprados.\n\n"
+            "Regras absolutas:\n"
+            "1. Separe RIGOROSAMENTE a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item nos campos corretos da estrutura.\n"
+            "2. O campo 'descricao' não deve conter quantidades ou valores.\n"
+            "3. Se não houver lista de compras, retorne 'documento_valido' como false e 'lotes' vazio.\n"
+            "4. Responda APENAS o JSON conforme o schema exigido."
         )
         
         completion = client.beta.chat.completions.parse(

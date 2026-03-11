@@ -1,7 +1,13 @@
-const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const getApiBase = () => {
+    if (process.env.NEXT_PUBLIC_API_URL) return process.env.NEXT_PUBLIC_API_URL.replace(/\/$/, "");
+    if (typeof window !== "undefined") return ""; // Use relative path in production browser
+    return "http://127.0.0.1:8000"; // Fallback for local SSR/development
+};
+
+const API_BASE = getApiBase();
 
 if (typeof window !== "undefined") {
-    console.log("Using API Base URL:", API_BASE);
+    console.log("Using API Base URL:", API_BASE || "(relative)");
 }
 
 function getToken(): string | null {

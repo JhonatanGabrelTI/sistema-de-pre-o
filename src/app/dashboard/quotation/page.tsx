@@ -25,6 +25,13 @@ export default function QuotationPage() {
     const [exporting, setExporting] = useState(false);
     const [exportingExcel, setExportingExcel] = useState(false);
     const [error, setError] = useState("");
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
+
+    // Reset page when project changes
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [selectedProject]);
 
     useEffect(() => {
         api.projects
@@ -351,7 +358,7 @@ export default function QuotationPage() {
                                 </tr>
                             </thead>
                             <tbody>
-                                {quotation.items.map((item: any) => (
+                                {quotation.items.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE).map((item: any) => (
                                     <tr key={item.id}>
                                         <td style={{ fontWeight: 500, maxWidth: 250 }}>{item.product_name}</td>
                                         <td>{item.quantity}</td>
@@ -392,6 +399,43 @@ export default function QuotationPage() {
                                 ))}
                             </tbody>
                         </table>
+
+                        {/* Pagination Controls */}
+                        {quotation.items.length > ITEMS_PER_PAGE && (
+                            <div style={{
+                                display: "flex",
+                                alignItems: "center",
+                                justifyContent: "space-between",
+                                padding: "16px 20px",
+                                borderTop: "1px solid var(--border)",
+                                background: "rgba(0,0,0,0.2)"
+                            }}>
+                                <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                                    Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, quotation.items.length)} de {quotation.items.length} itens
+                                </div>
+                                <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                        disabled={currentPage === 1}
+                                        className="btn-secondary"
+                                        style={{ padding: "6px 12px", fontSize: 13, opacity: currentPage === 1 ? 0.5 : 1 }}
+                                    >
+                                        Anterior
+                                    </button>
+                                    <span style={{ fontSize: 14, fontWeight: 500, margin: "0 8px" }}>
+                                        {currentPage} de {Math.max(1, Math.ceil(quotation.items.length / ITEMS_PER_PAGE))}
+                                    </span>
+                                    <button
+                                        onClick={() => setCurrentPage(p => Math.min(Math.max(1, Math.ceil(quotation.items.length / ITEMS_PER_PAGE)), p + 1))}
+                                        disabled={currentPage === Math.max(1, Math.ceil(quotation.items.length / ITEMS_PER_PAGE))}
+                                        className="btn-secondary"
+                                        style={{ padding: "6px 12px", fontSize: 13, opacity: currentPage === Math.max(1, Math.ceil(quotation.items.length / ITEMS_PER_PAGE)) ? 0.5 : 1 }}
+                                    >
+                                        Próxima
+                                    </button>
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </motion.div>
             )}

@@ -23,6 +23,8 @@ export default function ProductsPage() {
     const [loading, setLoading] = useState(true);
     const [searchTerm, setSearchTerm] = useState("");
     const [filterStatus, setFilterStatus] = useState("ALL");
+    const [currentPage, setCurrentPage] = useState(1);
+    const ITEMS_PER_PAGE = 50;
     const [globalMargin, setGlobalMargin] = useState("");
     const [searching, setSearching] = useState(false);
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
@@ -97,9 +99,20 @@ export default function ProductsPage() {
         return matchSearch && matchStatus;
     });
 
+    const totalPages = Math.max(1, Math.ceil(filtered.length / ITEMS_PER_PAGE));
+    const paginatedProducts = filtered.slice(
+        (currentPage - 1) * ITEMS_PER_PAGE,
+        currentPage * ITEMS_PER_PAGE
+    );
+
+    // Reset pagination when search or status filters change
+    useEffect(() => {
+        setCurrentPage(1);
+    }, [searchTerm, filterStatus, selectedProject]);
+
     const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.checked) {
-            setSelectedProductIds(filtered.map(p => p.id));
+            setSelectedProductIds(paginatedProducts.map(p => p.id));
         } else {
             setSelectedProductIds([]);
         }
@@ -372,7 +385,7 @@ export default function ProductsPage() {
                                 </td>
                             </tr>
                         ) : (
-                            filtered.map((product) => (
+                            paginatedProducts.map((product) => (
                                 <tr key={product.id} style={{ background: selectedProductIds.includes(product.id) ? "rgba(99, 102, 241, 0.05)" : "transparent" }}>
                                     <td style={{ textAlign: "center" }}>
                                         <input 
@@ -579,6 +592,43 @@ export default function ProductsPage() {
                         )}
                     </tbody>
                 </table>
+
+                {/* Pagination Controls */}
+                {!loading && filtered.length > ITEMS_PER_PAGE && (
+                    <div style={{
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "space-between",
+                        padding: "16px 20px",
+                        borderTop: "1px solid var(--border)",
+                        background: "rgba(0,0,0,0.2)"
+                    }}>
+                        <div style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                            Mostrando {(currentPage - 1) * ITEMS_PER_PAGE + 1} a {Math.min(currentPage * ITEMS_PER_PAGE, filtered.length)} de {filtered.length} itens
+                        </div>
+                        <div style={{ display: "flex", gap: 8, alignItems: "center" }}>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+                                disabled={currentPage === 1}
+                                className="btn-secondary"
+                                style={{ padding: "6px 12px", fontSize: 13, opacity: currentPage === 1 ? 0.5 : 1 }}
+                            >
+                                Anterior
+                            </button>
+                            <span style={{ fontSize: 14, fontWeight: 500, margin: "0 8px" }}>
+                                {currentPage} de {totalPages}
+                            </span>
+                            <button
+                                onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
+                                disabled={currentPage === totalPages}
+                                className="btn-secondary"
+                                style={{ padding: "6px 12px", fontSize: 13, opacity: currentPage === totalPages ? 0.5 : 1 }}
+                            >
+                                Próxima
+                            </button>
+                        </div>
+                    </div>
+                )}
             </motion.div>
         </div>
     );

@@ -11,18 +11,18 @@ logger = logging.getLogger(__name__)
 
 class ItemExtracted(BaseModel):
     numero_item: Optional[str] = Field(None, description="Número abstrato do item, se houver")
-    descricao: str = Field(..., description="Nome e descrição principal do produto")
+    descricao: str = Field(..., description="Nome do produto ou serviço (se não encontrar texto limpo, coloque o bloco inteiro)")
     quantidade: Optional[float] = Field(None, description="Quantidade do produto")
     unidade_medida: Optional[str] = Field(None, description="Unidade de medida")
     valor_unitario_estimado: Optional[float] = Field(None, description="Valor unitário estimado ou máximo aceito")
     valor_total_estimado: Optional[float] = Field(None, description="Valor total estimado")
 
 class LoteExtracted(BaseModel):
-    numero_lote: Optional[str]
+    numero_lote: Optional[str] = Field(None, description="Número do lote (ou grupo) ao qual pertence")
     itens: List[ItemExtracted]
 
 class ExtracaoEdital(BaseModel):
-    documento_valido: bool
+    documento_valido: bool = Field(..., description="Verdadeiro se encontrou qualquer indício de tabela, preço ou produto")
     lotes: List[LoteExtracted]
 
 def parse_page_ranges(pages_config: str, max_pages: int) -> List[int]:
@@ -110,9 +110,11 @@ def parse_products_from_pdf_vision(file_bytes: bytes, pages_config: str = None) 
         
         client = OpenAI(api_key=api_key)
         system_prompt = (
-            "Atue como um extrator de dados de alta precisão. Leia estas páginas e localize a lista de produtos/serviços que serão comprados.\n\n"
-            "Preencha corretamente a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item.\n"
-            "Responda APENAS o JSON. Apenas liste os itens encontrados nestas páginas. Se não houver itens nas páginas, retorne documento_valido=false."
+            "Atue como um extrator de dados de alta tolerância a falhas. Leia as páginas e extraia qualquer tabela, lista ou grupo de serviços/produtos com valores.\n"
+            "Preencha Descrição, Quantidade, Unidade, Valor Unitário e Número do Item. Se algum campo faltar, deixe-o em nulo/null (não invente dados).\n"
+            "Sua regra de ouro é: se houver UM item válido (produto, quantidade e preço), documento_valido=true.\n"
+            "Retorne APENAS UM JSON válido com a seguinte estrutura estrita: \n"
+            '{"documento_valido": true, "lotes": [{"numero_lote": "1", "itens": [{"numero_item": "1", "descricao": "Abraçadeira", "quantidade": 100.0, "unidade_medida": "UN", "valor_unitario_estimado": 2.50, "valor_total_estimado": 250.0}]}]}'
         )
         messages = [
             {"role": "system", "content": system_prompt}
@@ -136,14 +138,36 @@ def parse_products_from_pdf_vision(file_bytes: bytes, pages_config: str = None) 
             
         messages.append({"role": "user", "content": user_content})
         
-        completion = client.beta.chat.completions.parse(
-            model="gpt-4o", # Full GPT-4o for best vision quality
-            messages=messages,
-            response_format=ExtracaoEdital,
+        response_format={"type": "json_object"},
             temperature=0.0
         )
         
-        return completion.choices[0].message.parsed
+        raw_json = completion.choices[0].message.content
+        logger.info(f"Vision OCR Raw JSON: {raw_json[:500]}...")
+        
+        try:
+            return ExtracaoEdital.model_validate_json(raw_json)
+        except Exception as e_parse:
+            logger.error(f"Failed to strictly parse Vision JSON: {e_parse}. Returning raw dict wrap.")
+            import json
+            parsed_dict = json.loads(raw_json)
+            # Create a manual wrap
+            lotes = []
+            if "lotes" in parsed_dict:
+                for l in parsed_dict["lotes"]:
+                    itens = []
+                    if "itens" in l:
+                        for it in l["itens"]:
+                            itens.append(ItemExtracted(
+                                numero_item=str(it.get("numero_item")) if it.get("numero_item") else None,
+                                descricao=str(it.get("descricao", "Item sem nome")),
+                                quantidade=float(it.get("quantidade")) if it.get("quantidade") not in [None, ""] else None,
+                                unidade_medida=str(it.get("unidade_medida")) if it.get("unidade_medida") else None,
+                                valor_unitario_estimado=float(it.get("valor_unitario_estimado")) if it.get("valor_unitario_estimado") not in [None, ""] else None,
+                                valor_total_estimado=float(it.get("valor_total_estimado")) if it.get("valor_total_estimado") not in [None, ""] else None
+                            ))
+                    lotes.append(LoteExtracted(numero_lote=str(l.get("numero_lote")) if l.get("numero_lote") else None, itens=itens))
+            return ExtracaoEdital(documento_valido=parsed_dict.get("documento_valido", True), lotes=lotes)
     except Exception as e:
         logger.error(f"Vision OCR failed: {e}")
         return ExtracaoEdital(documento_valido=False, lotes=[])
@@ -160,22 +184,48 @@ def parse_products_from_text(raw_text: str, pages_config: str = None) -> Extraca
     try:
         client = OpenAI(api_key=api_key)
         system_prompt = (
-            "Atue como um extrator de dados de alta precisão. Leia o texto e localize a lista de itens.\n\n"
-            "Preencha corretamente a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item da estrutura.\n"
-            "Responda APENAS o JSON conforme o schema exigido. Se não houver lista, retonre documento_valido=false."
+            "Atue como um extrator de dados de alta tolerância a falhas. Leia o texto e extraia qualquer tabela, lista ou grupo de serviços/produtos com valores.\n"
+            "Preencha Descrição, Quantidade, Unidade, Valor Unitário e Número do Item. Se algum campo faltar, deixe-o em nulo/null (não invente dados).\n"
+            "Sua regra de ouro é: se houver UM item válido (produto, quantidade e preço), documento_valido=true.\n"
+            "Retorne APENAS UM JSON válido com a seguinte estrutura estrita: \n"
+            '{"documento_valido": true, "lotes": [{"numero_lote": "1", "itens": [{"numero_item": "1", "descricao": "Abraçadeira", "quantidade": 100.0, "unidade_medida": "UN", "valor_unitario_estimado": 2.50, "valor_total_estimado": 250.0}]}]}'
         )
         
-        completion = client.beta.chat.completions.parse(
+        completion = client.chat.completions.create(
             model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
                 {"role": "user", "content": f"Extraia os itens:\n\n{truncated_text}"}
             ],
-            response_format=ExtracaoEdital,
+            response_format={"type": "json_object"},
             temperature=0.0
         )
         
-        return completion.choices[0].message.parsed
+        raw_json = completion.choices[0].message.content
+        logger.info(f"Text OCR Raw JSON: {raw_json[:500]}...")
+
+        try:
+            return ExtracaoEdital.model_validate_json(raw_json)
+        except Exception as e_parse:
+            logger.error(f"Failed to strictly parse Text JSON: {e_parse}. Returning raw dict wrap.")
+            import json
+            parsed_dict = json.loads(raw_json)
+            lotes = []
+            if "lotes" in parsed_dict:
+                for l in parsed_dict["lotes"]:
+                    itens = []
+                    if "itens" in l:
+                        for it in l["itens"]:
+                            itens.append(ItemExtracted(
+                                numero_item=str(it.get("numero_item")) if it.get("numero_item") else None,
+                                descricao=str(it.get("descricao", "Item sem nome")),
+                                quantidade=float(it.get("quantidade")) if it.get("quantidade") not in [None, ""] else None,
+                                unidade_medida=str(it.get("unidade_medida")) if it.get("unidade_medida") else None,
+                                valor_unitario_estimado=float(it.get("valor_unitario_estimado")) if it.get("valor_unitario_estimado") not in [None, ""] else None,
+                                valor_total_estimado=float(it.get("valor_total_estimado")) if it.get("valor_total_estimado") not in [None, ""] else None
+                            ))
+                    lotes.append(LoteExtracted(numero_lote=str(l.get("numero_lote")) if l.get("numero_lote") else None, itens=itens))
+            return ExtracaoEdital(documento_valido=parsed_dict.get("documento_valido", True), lotes=lotes)
     except Exception as e:
         logger.error(f"Text-based extraction failed: {e}")
         return ExtracaoEdital(documento_valido=False, lotes=[])

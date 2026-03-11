@@ -138,12 +138,25 @@ def parse_products_from_pdf_vision(file_bytes: bytes, pages_config: str = None) 
             
         messages.append({"role": "user", "content": user_content})
         
-        response_format={"type": "json_object"},
+        completion = client.chat.completions.create(
+            model="gpt-4o", # Full GPT-4o for best vision quality
+            messages=messages,
+            response_format={"type": "json_object"},
             temperature=0.0
         )
         
         raw_json = completion.choices[0].message.content
         logger.info(f"Vision OCR Raw JSON: {raw_json[:500]}...")
+        
+        # Clean markdown if present
+        raw_json = raw_json.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:]
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:]
+        if raw_json.endswith("```"):
+            raw_json = raw_json[:-3]
+        raw_json = raw_json.strip()
         
         try:
             return ExtracaoEdital.model_validate_json(raw_json)
@@ -203,6 +216,16 @@ def parse_products_from_text(raw_text: str, pages_config: str = None) -> Extraca
         
         raw_json = completion.choices[0].message.content
         logger.info(f"Text OCR Raw JSON: {raw_json[:500]}...")
+        
+        # Clean markdown if present
+        raw_json = raw_json.strip()
+        if raw_json.startswith("```json"):
+            raw_json = raw_json[7:]
+        elif raw_json.startswith("```"):
+            raw_json = raw_json[3:]
+        if raw_json.endswith("```"):
+            raw_json = raw_json[:-3]
+        raw_json = raw_json.strip()
 
         try:
             return ExtracaoEdital.model_validate_json(raw_json)

@@ -3,25 +3,23 @@ version: '3.8'
 services:
   backend:
     image: licitia-backend:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
-    restart: always
+    deploy:
+      restart_policy:
+        condition: on-failure
     networks:
       - app-network
 
   frontend:
     image: licitia-frontend:latest
-    build:
-      context: .
-      dockerfile: Dockerfile.frontend
     ports:
       - "3000:3000"
     environment:
       - NEXT_PUBLIC_API_URL=https://licitia.allanturing.com/api
-    restart: always
+    deploy:
+      restart_policy:
+        condition: on-failure
     depends_on:
       - backend
     networks:

@@ -12,7 +12,8 @@ from app.schemas.project import ProjectResponse, ProjectListResponse
 from app.services.pdf_service import (
     extract_text_from_pdf, 
     parse_products_from_text,
-    parse_products_from_pdf_vision
+    parse_products_from_pdf_vision,
+    safe_float
 )
 from app.utils.auth import get_current_user
 
@@ -53,15 +54,17 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
         for lote in extracao.lotes:
             lote_num = str(lote.numero_lote) if lote.numero_lote else None
             for item in lote.itens:
+                # Sanitize quantity and values using safe_float
+                qty_val = safe_float(item.quantidade)
                 product = Product(
                     project_id=project.id,
                     numero_lote=lote_num,
                     name=f"Item {item.numero_item} - {item.descricao}" if item.numero_item else item.descricao,
                     description=item.descricao,
-                    quantity=int(item.quantidade) if item.quantidade else 1,
+                    quantity=int(qty_val) if qty_val else 1,
                     unidade_medida=item.unidade_medida,
-                    valor_unitario_estimado=item.valor_unitario_estimado,
-                    valor_total_estimado=item.valor_total_estimado
+                    valor_unitario_estimado=safe_float(item.valor_unitario_estimado),
+                    valor_total_estimado=safe_float(item.valor_total_estimado)
                 )
                 db.add(product)
 

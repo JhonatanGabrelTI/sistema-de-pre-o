@@ -3,7 +3,7 @@ import io
 import os
 import logging
 import base64
-from typing import List, Tuple, Optional
+from typing import List, Tuple, Optional, Any
 from pydantic import BaseModel, Field
 from openai import OpenAI
 
@@ -12,10 +12,10 @@ logger = logging.getLogger(__name__)
 class ItemExtracted(BaseModel):
     numero_item: Optional[str] = Field(None, description="Número abstrato do item, se houver")
     descricao: str = Field(..., description="Nome do produto ou serviço (se não encontrar texto limpo, coloque o bloco inteiro)")
-    quantidade: Optional[float] = Field(None, description="Quantidade do produto")
+    quantidade: Optional[Any] = Field(None, description="Quantidade do produto")
     unidade_medida: Optional[str] = Field(None, description="Unidade de medida")
-    valor_unitario_estimado: Optional[float] = Field(None, description="Valor unitário estimado ou máximo aceito")
-    valor_total_estimado: Optional[float] = Field(None, description="Valor total estimado")
+    valor_unitario_estimado: Optional[Any] = Field(None, description="Valor unitário estimado ou máximo aceito")
+    valor_total_estimado: Optional[Any] = Field(None, description="Valor total estimado")
 
 class LoteExtracted(BaseModel):
     numero_lote: Optional[str] = Field(None, description="Número do lote (ou grupo) ao qual pertence")

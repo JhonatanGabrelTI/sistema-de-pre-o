@@ -105,7 +105,7 @@ export default function LoginPage() {
                         style={{ fontSize: 28, fontWeight: 800, marginBottom: 4 }}
                         className="gradient-text"
                     >
-                        Preço Inteligente
+                        Preço Inteligente V0.1.1
                     </h1>
                     <p style={{ color: "var(--text-secondary)", fontSize: 14 }}>
                         Entre na sua conta para continuar

@@ -65,6 +65,30 @@ def parse_page_ranges(pages_config: str, max_pages: int) -> List[int]:
         
     return sorted(list(selected_pages))
 
+def safe_float(val) -> Optional[float]:
+    """Safely convert strings like '1.500,00', '10,5', or 'R$ 10.0' into valid floats."""
+    if val is None or val == "":
+        return None
+    
+    val_str = str(val).strip().upper().replace("R$", "").replace(" ", "")
+    if val_str == "" or val_str == "NULL" or val_str == "NULO":
+        return None
+        
+    try:
+        # If European/Brazilian format: "1.500,00" -> "1500.00"
+        # If it has both dots and commas, assume comma is decimal if it's the last separator
+        if "," in val_str and "." in val_str:
+            if val_str.rfind(",") > val_str.rfind("."):
+                val_str = val_str.replace(".", "").replace(",", ".")
+            else:
+                val_str = val_str.replace(",", "")
+        elif "," in val_str:
+            val_str = val_str.replace(",", ".")
+            
+        return float(val_str)
+    except Exception:
+        return None
+
 def extract_text_from_pdf(file_bytes: bytes, pages_config: str = None) -> str:
     """Extract text from PDF using pdfplumber with PyPDF fallback."""
     text = ""
@@ -174,10 +198,10 @@ def parse_products_from_pdf_vision(file_bytes: bytes, pages_config: str = None) 
                             itens.append(ItemExtracted(
                                 numero_item=str(it.get("numero_item")) if it.get("numero_item") else None,
                                 descricao=str(it.get("descricao", "Item sem nome")),
-                                quantidade=float(it.get("quantidade")) if it.get("quantidade") not in [None, ""] else None,
+                                quantidade=safe_float(it.get("quantidade")),
                                 unidade_medida=str(it.get("unidade_medida")) if it.get("unidade_medida") else None,
-                                valor_unitario_estimado=float(it.get("valor_unitario_estimado")) if it.get("valor_unitario_estimado") not in [None, ""] else None,
-                                valor_total_estimado=float(it.get("valor_total_estimado")) if it.get("valor_total_estimado") not in [None, ""] else None
+                                valor_unitario_estimado=safe_float(it.get("valor_unitario_estimado")),
+                                valor_total_estimado=safe_float(it.get("valor_total_estimado"))
                             ))
                     lotes.append(LoteExtracted(numero_lote=str(l.get("numero_lote")) if l.get("numero_lote") else None, itens=itens))
             return ExtracaoEdital(documento_valido=parsed_dict.get("documento_valido", True), lotes=lotes)
@@ -242,10 +266,10 @@ def parse_products_from_text(raw_text: str, pages_config: str = None) -> Extraca
                             itens.append(ItemExtracted(
                                 numero_item=str(it.get("numero_item")) if it.get("numero_item") else None,
                                 descricao=str(it.get("descricao", "Item sem nome")),
-                                quantidade=float(it.get("quantidade")) if it.get("quantidade") not in [None, ""] else None,
+                                quantidade=safe_float(it.get("quantidade")),
                                 unidade_medida=str(it.get("unidade_medida")) if it.get("unidade_medida") else None,
-                                valor_unitario_estimado=float(it.get("valor_unitario_estimado")) if it.get("valor_unitario_estimado") not in [None, ""] else None,
-                                valor_total_estimado=float(it.get("valor_total_estimado")) if it.get("valor_total_estimado") not in [None, ""] else None
+                                valor_unitario_estimado=safe_float(it.get("valor_unitario_estimado")),
+                                valor_total_estimado=safe_float(it.get("valor_total_estimado"))
                             ))
                     lotes.append(LoteExtracted(numero_lote=str(l.get("numero_lote")) if l.get("numero_lote") else None, itens=itens))
             return ExtracaoEdital(documento_valido=parsed_dict.get("documento_valido", True), lotes=lotes)

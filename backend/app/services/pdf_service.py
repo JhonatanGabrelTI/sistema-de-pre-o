@@ -1,83 +1,13 @@
 import re
 import io
-import logging
-from typing import List, Tuple, Optional, Optional
-
-logger = logging.getLogger(__name__)
-
-
-def extract_text_from_pdf(file_bytes: bytes) -> str:
-    """Extract text from PDF using pdfplumber with PyPDF fallback."""
-    text = ""
-
-    # Try pdfplumber first
-    try:
-        import pdfplumber
-        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
-                if page_text:
-                    text += page_text + "\n"
-        if text.strip():
-            logger.info("Text extracted via pdfplumber")
-            return text.strip()
-    except Exception as e:
-        logger.warning(f"pdfplumber failed: {e}")
-
-    # Fallback to PyPDF
-    try:
-        from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(file_bytes))
-        for page in reader.pages:
-            page_text = page.extract_text()
-            if page_text:
-                text += page_text + "\n"
-        if text.strip():
-            logger.info("Text extracted via PyPDF")
-            return text.strip()
-    except Exception as e:
-        logger.warning(f"PyPDF failed: {e}")
-
-    # Fallback to OCR (Tesseract)
-    try:
-        import pytesseract
-        from PIL import Image
-        from pdf2image import convert_from_bytes
-        
-        logger.info("Attempting OCR fallback (page-by-page to save memory)")
-        ocr_text = ""
-        
-        # Process only up to 10 pages, one by one to avoid OOM
-        for i in range(1, 11):
-            try:
-                # convert_from_bytes using first_page and last_page to only load ONE image at a time
-                images = convert_from_bytes(file_bytes, first_page=i, last_page=i)
-                if not images:
-                    break # No more pages
-                
-                page_text = pytesseract.image_to_string(images[0], lang='por')
-                if page_text:
-                    ocr_text += page_text + "\n"
-                
-                # Explicitly clear image from memory
-                del images
-            except Exception as page_err:
-                logger.debug(f"End of pages or error at page {i}: {page_err}")
-                break
-        
-        if ocr_text.strip():
-            logger.info("Text extracted via OCR")
-            return ocr_text.strip()
-            
-    except Exception as e:
-        logger.warning(f"OCR fallback failed: {e}")
-
-    return text.strip() if text.strip() else "Não foi possível extrair texto do PDF."
-
-
 import os
+import logging
+import base64
+from typing import List, Tuple, Optional
 from pydantic import BaseModel, Field
 from openai import OpenAI
+
+logger = logging.getLogger(__name__)
 
 class ItemExtracted(BaseModel):
     numero_item: int
@@ -95,61 +25,106 @@ class ExtracaoEdital(BaseModel):
     documento_valido: bool = Field(..., description="true se encontrou itens de compra, false se não encontrou")
     lotes: List[LoteExtracted]
 
-def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
-    """Parse product list from extracted PDF text using OpenAI LLM with Smart Cropping."""
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key:
-        logger.error("OPENAI_API_KEY not found in environment variables.")
-        return ExtracaoEdital(documento_valido=False, lotes=[])
-
-    # --- SMART CROPPING LOGIC ---
-    # Find the most relevant parts of the document (usually Termo de Referência or tables)
-    keywords = [
-        "TERMO DE REFERÊNCIA", "QUADRO DE ITENS", "LOTE 01", "VALOR ESTIMADO", 
-        "DESCRIÇÃO DO OBJETO", "ESPECIFICAÇÕES TÉCNICAS", "ANEXO I"
-    ]
-    
-    start_pos = -1
-    for kw in keywords:
-        pos = raw_text.upper().find(kw)
-        if pos != -1:
-            if start_pos == -1 or pos < start_pos:
-                start_pos = pos
-    
-    # If found a keyword, start 500 chars before it to catch titles, otherwise start at 0
-    start_point = max(0, start_pos - 500) if start_pos != -1 else 0
-    # Take up to 25.000 characters (more than enough for most item lists and faster than 40k)
-    truncated_text = raw_text[start_point : start_point + 25000]
-    
-    logger.info(f"PDF AI Parse: Text cropped at position {start_point}, sending {len(truncated_text)} chars.")
+def extract_text_from_pdf(file_bytes: bytes) -> str:
+    """Extract text from PDF using pdfplumber with PyPDF fallback."""
+    text = ""
+    try:
+        import pdfplumber
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            for page in pdf.pages:
+                page_text = page.extract_text()
+                if page_text:
+                    text += page_text + "\n"
+        if text.strip() and len(text.strip()) > 100:
+            logger.info("Text extracted via pdfplumber")
+            return text.strip()
+    except Exception as e:
+        logger.warning(f"pdfplumber failed: {e}")
 
     try:
-        client = OpenAI(api_key=api_key)
-        
-        system_prompt = """# ROLE E OBJETIVO
-Você é uma API ultra-rápida de Extração de Dados. Sua missão é localizar a tabela de itens/produtos em um edital.
-Ignore textos jurídicos, leis e preâmbulos. Foco total em: Item, Descrição, Unidade, Quantidade e Preço.
+        from pypdf import PdfReader
+        reader = PdfReader(io.BytesIO(file_bytes))
+        for page in reader.pages:
+            page_text = page.extract_text()
+            if page_text:
+                text += page_text + "\n"
+        if text.strip() and len(text.strip()) > 100:
+            logger.info("Text extracted via PyPDF")
+            return text.strip()
+    except Exception as e:
+        logger.warning(f"PyPDF failed: {e}")
 
-# REGRAS CRÍTICAS
-1. UNIFIQUE DESCRIÇÕES: Se o PDF quebrou a descrição de um item em várias linhas, junte-as em uma só.
-2. LIMPEZA: Remova lixo de cabeçalho/rodapé que possa estar entre os itens.
-3. NUMÉRICOS: Converta "R$ 1.234,56" para 1234.56.
-4. LOTE: Extraia o número do lote se disponível.
-"""
+    return "" # Return empty to trigger Vision OCR
+
+def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
+    """Extract data using OpenAI Vision (GPT-4o) for scanned PDFs."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return ExtracaoEdital(documento_valido=False, lotes=[])
+
+    try:
+        import fitz # PyMuPDF
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        
+        # Take up to 5 pages to avoid context token limits/cost
+        client = OpenAI(api_key=api_key)
+        messages = [
+            {
+                "role": "system", 
+                "content": "Você é um especialista em licitações. Extraia tabelas de itens de compras de imagens de editais. Responda APENAS em JSON."
+            }
+        ]
+        
+        user_content = [{"type": "text", "text": "Extraia os itens destas páginas de edital:"}]
+        
+        for i in range(min(5, doc.page_count)):
+            page = doc.load_page(i)
+            pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) # Better quality for OCR
+            img_bytes = pix.tobytes("png")
+            base64_image = base64.b64encode(img_bytes).decode('utf-8')
+            user_content.append({
+                "type": "image_url",
+                "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+            })
+            
+        messages.append({"role": "user", "content": user_content})
         
         completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini", # Using mini for speed and cost effectiveness
+            model="gpt-4o", # Full GPT-4o for best vision quality
+            messages=messages,
+            response_format=ExtracaoEdital,
+            temperature=0.0
+        )
+        
+        return completion.choices[0].message.parsed
+    except Exception as e:
+        logger.error(f"Vision OCR failed: {e}")
+        return ExtracaoEdital(documento_valido=False, lotes=[])
+
+def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
+    """Parse product list from extracted PDF text using OpenAI LLM."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        return ExtracaoEdital(documento_valido=False, lotes=[])
+
+    # Truncate to avoid token limits
+    truncated_text = raw_text[:30000]
+    
+    try:
+        client = OpenAI(api_key=api_key)
+        system_prompt = "Extraia a tabela de itens/produtos deste edital. Foco em: Item, Descrição, Unidade, Quantidade e Preço."
+        
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Extraia os itens deste texto:\n\n{truncated_text}"}
+                {"role": "user", "content": f"Extraia os itens:\n\n{truncated_text}"}
             ],
             response_format=ExtracaoEdital,
             temperature=0.0
         )
         
-        result = completion.choices[0].message.parsed
-        return result if result else ExtracaoEdital(documento_valido=False, lotes=[])
-        
+        return completion.choices[0].message.parsed
     except Exception as e:
-        logger.error(f"Error during OpenAI extraction: {e}")
+        logger.error(f"Text-based extraction failed: {e}")
         return ExtracaoEdital(documento_valido=False, lotes=[])

@@ -42,10 +42,23 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     try:
         import pytesseract
         from PIL import Image
-        from pypdf import PdfReader
-        reader = PdfReader(io.BytesIO(file_bytes))
-        # OCR only works on image-based PDFs, simplified fallback
-        logger.info("Attempting OCR fallback (requires Tesseract installed)")
+        from pdf2image import convert_from_bytes
+        
+        logger.info("Attempting OCR fallback (requires Tesseract and poppler installed)")
+        # Convert PDF to images
+        images = convert_from_bytes(file_bytes)
+        ocr_text = ""
+        for i, image in enumerate(images):
+            # Only process up to 10 pages for performance/timeout reasons in OCR
+            if i >= 10: break
+            page_text = pytesseract.image_to_string(image, lang='por') # Defaulting to Portuguese
+            if page_text:
+                ocr_text += page_text + "\n"
+        
+        if ocr_text.strip():
+            logger.info("Text extracted via OCR")
+            return ocr_text.strip()
+            
     except Exception as e:
         logger.warning(f"OCR fallback failed: {e}")
 

@@ -1,4 +1,8 @@
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000";
+const API_BASE = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+
+if (typeof window !== "undefined") {
+    console.log("Using API Base URL:", API_BASE);
+}
 
 function getToken(): string | null {
     if (typeof window === "undefined") return null;

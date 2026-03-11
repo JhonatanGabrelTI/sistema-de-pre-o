@@ -44,16 +44,26 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
         from PIL import Image
         from pdf2image import convert_from_bytes
         
-        logger.info("Attempting OCR fallback (requires Tesseract and poppler installed)")
-        # Convert PDF to images
-        images = convert_from_bytes(file_bytes)
+        logger.info("Attempting OCR fallback (page-by-page to save memory)")
         ocr_text = ""
-        for i, image in enumerate(images):
-            # Only process up to 10 pages for performance/timeout reasons in OCR
-            if i >= 10: break
-            page_text = pytesseract.image_to_string(image, lang='por') # Defaulting to Portuguese
-            if page_text:
-                ocr_text += page_text + "\n"
+        
+        # Process only up to 10 pages, one by one to avoid OOM
+        for i in range(1, 11):
+            try:
+                # convert_from_bytes using first_page and last_page to only load ONE image at a time
+                images = convert_from_bytes(file_bytes, first_page=i, last_page=i)
+                if not images:
+                    break # No more pages
+                
+                page_text = pytesseract.image_to_string(images[0], lang='por')
+                if page_text:
+                    ocr_text += page_text + "\n"
+                
+                # Explicitly clear image from memory
+                del images
+            except Exception as page_err:
+                logger.debug(f"End of pages or error at page {i}: {page_err}")
+                break
         
         if ocr_text.strip():
             logger.info("Text extracted via OCR")

@@ -24,25 +24,25 @@ def extraction_is_valid(extracao) -> bool:
     return hasattr(extracao, 'documento_valido') and extracao.documento_valido and extracao.lotes
 
 async def process_pdf_background(project_id: str, file_bytes: bytes, pages_config: str = None):
-    """Executado em segundo plano para extrair dados com IA sem travar a interface."""
+    """Processa o PDF (agora de forma síncrona/esperada na Vercel para não morrer)."""
     db: Session = SessionLocal()
     try:
         project = db.query(Project).filter(Project.id == project_id).first()
         if not project:
             return
 
-        # 1. Tenta extrair texto padrão (agora no background para velocidade)
-        raw_text = extract_text_from_pdf(file_bytes)
+        # 1. Tenta extrair texto padrão passando a config das paginas
+        raw_text = extract_text_from_pdf(file_bytes, pages_config)
         project.pdf_raw_text = raw_text
         db.commit()
         
         # 2. Se falhar ou for muito curto, usa VISION
         if not raw_text or len(raw_text) < 100:
             logger.info(f"PDF {project_id} sem texto. Ativando GPT-4o Vision OCR...")
-            extracao = parse_products_from_pdf_vision(file_bytes)
+            extracao = parse_products_from_pdf_vision(file_bytes, pages_config)
         else:
             # Parse products via LLM (Texto)
-            extracao = parse_products_from_text(raw_text)
+            extracao = parse_products_from_text(raw_text, pages_config)
         
         if not extraction_is_valid(extracao):
             # Document is invalid or empty
@@ -90,7 +90,7 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
 async def upload_pdf(
     file: UploadFile = File(...),
     name: str = Form("Novo Projeto"),
-    background_tasks: BackgroundTasks = None,
+    pages_config: str = Form(None),
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -101,22 +101,24 @@ async def upload_pdf(
     if len(file_bytes) > 50 * 1024 * 1024:  # Set to 50MB for application-level limit
         raise HTTPException(status_code=400, detail="Arquivo muito grande (máximo permitido: 50MB)")
 
-    # Cria o projeto como "PROCESSING" IMEDIATAMENTE
-    # Sem extrair texto agora para não travar a conexão
+    # Cria o projeto como PROCESSING imediatamente
     project = Project(
         user_id=current_user.id,
         name=name,
         pdf_filename=file.filename,
-        pdf_raw_text="", # Será preenchido no background
+        pdf_raw_text="", # Será preenchido no processamento
         status="PROCESSING",
     )
     db.add(project)
     db.commit()
     db.refresh(project)
 
-    # Manda todo o processamento para o background
-    if background_tasks:
-        background_tasks.add_task(process_pdf_background, str(project.id), file_bytes)
+    # Vercel serverless kills background tasks, so we await synchronously.
+    # Frontend handles the loading state (e.g., "Processando PDF...")
+    await process_pdf_background(str(project.id), file_bytes, pages_config)
+
+    # Refresh after processing
+    db.refresh(project)
 
     return ProjectResponse(
         id=str(project.id),
@@ -124,7 +126,7 @@ async def upload_pdf(
         pdf_filename=project.pdf_filename,
         status=project.status,
         created_at=project.created_at,
-        product_count=0,
+        product_count=len(project.products) if project.products else 0,
     )
 
 

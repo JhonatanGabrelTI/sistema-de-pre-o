@@ -5,7 +5,7 @@ from app.models.user import User
 from app.schemas.auth import UserRegister, UserLogin, UserResponse, TokenResponse
 from app.utils.auth import hash_password, verify_password, create_access_token, get_current_user
 
-router = APIRouter(prefix="/auth", tags=["Authentication"])
+router = APIRouter(prefix="/api/auth", tags=["Authentication"])
 
 
 @router.post("/register", response_model=TokenResponse)

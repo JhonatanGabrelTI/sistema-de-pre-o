@@ -16,7 +16,7 @@ from app.services.pdf_service import (
 )
 from app.utils.auth import get_current_user
 
-router = APIRouter(prefix="/projects", tags=["Projects"])
+router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
 
 def extraction_is_valid(extracao) -> bool:

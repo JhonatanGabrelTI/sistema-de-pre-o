@@ -71,7 +71,7 @@ def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
         messages = [
             {
                 "role": "system", 
-                "content": "Você é um especialista em licitações. Extraia tabelas de itens de compras de imagens de editais. Responda APENAS em JSON."
+                "content": "Atue como um extrator de dados de alta precisão. Sua tarefa é ler imagens de editais e localizar a lista de produtos ou serviços que serão comprados.\n\nRegra absoluta:\n- Extraia: Item, Descrição, Quantidade, Unidade e Valor Unitário Estimado.\n- Se não encontrar uma lista de compras, retorne documento_valido=false e lotes vazios.\n- Responda APENAS em JSON."
             }
         ]
         
@@ -112,7 +112,13 @@ def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
     
     try:
         client = OpenAI(api_key=api_key)
-        system_prompt = "Extraia a tabela de itens/produtos deste edital. Foco em: Item, Descrição, Unidade, Quantidade e Preço."
+        system_prompt = (
+            "Atue como um extrator de dados. Leia o texto deste edital e localize a lista de produtos ou serviços que serão comprados.\n\n"
+            "Regras:\n"
+            "1. Extraia Item, Descrição, Quantidade, Unidade e Valor Unitário.\n"
+            "2. Se não encontrar uma lista de compras, retorne documento_valido=false.\n"
+            "3. Responda APENAS o JSON estruturado."
+        )
         
         completion = client.beta.chat.completions.parse(
             model="gpt-4o-mini",

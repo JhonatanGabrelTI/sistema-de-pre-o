@@ -11,7 +11,7 @@ from app.services.marketplace_service import search_marketplace_prices, search_a
 from app.services.stats_service import calculate_market_stats
 from app.utils.auth import get_current_user
 
-router = APIRouter(prefix="/offers", tags=["Offers"])
+router = APIRouter(prefix="/api/offers", tags=["Offers"])
 
 
 @router.post("/search/{product_id}", response_model=List[OfferResponse])

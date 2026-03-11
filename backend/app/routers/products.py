@@ -175,7 +175,7 @@ def bulk_update_margin(
     updated = query.update({Product.margin: data.margin}, synchronize_session="fetch")
     db.commit()
 
-    return uid
+    return {"detail": f"{updated} produtos atualizados com sucesso"}
 
 @router.delete("/{product_id}")
 def delete_product(

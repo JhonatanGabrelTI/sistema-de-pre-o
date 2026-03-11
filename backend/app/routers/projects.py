@@ -15,7 +15,7 @@ from app.utils.auth import get_current_user
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
 
-def process_pdf_background(project_id: str, raw_text: str):
+async def process_pdf_background(project_id: str, raw_text: str):
     """Executado em segundo plano para extrair dados com IA sem travar a interface."""
     db: Session = SessionLocal()
     try:
@@ -53,7 +53,7 @@ def process_pdf_background(project_id: str, raw_text: str):
         
         # Busca automática no ML/Shopee em segundo plano
         from app.services.marketplace_service import search_and_save_offers
-        search_and_save_offers(str(project.id), None)
+        await search_and_save_offers(str(project.id), None)
         
     except Exception as e:
         logger.error(f"Erro fatal processando PDF background do projeto {project_id}: {e}")

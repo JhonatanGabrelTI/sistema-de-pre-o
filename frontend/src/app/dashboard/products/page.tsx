@@ -403,11 +403,61 @@ export default function ProductsPage() {
                                         </div>
                                     </td>
                                     <td>
-                                        {product.min_price ? (
-                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
-                                                {product.best_offer_url ? (
+                                        <div style={{ display: "flex", flexDirection: "column", gap: 8, alignItems: "center" }}>
+                                            {/* Best Offer Link */}
+                                            {product.min_price ? (
+                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
+                                                    {product.best_offer_url ? (
+                                                        <a
+                                                            href={product.best_offer_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            style={{
+                                                                display: "inline-flex",
+                                                                alignItems: "center",
+                                                                justifyContent: "center",
+                                                                gap: 6,
+                                                                fontSize: 12,
+                                                                color: "white",
+                                                                background: "var(--accent)",
+                                                                border: "1px solid rgba(255, 255, 255, 0.1)",
+                                                                padding: "6px 12px",
+                                                                borderRadius: 8,
+                                                                textDecoration: "none",
+                                                                fontWeight: 600,
+                                                                transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                                                                boxShadow: "0 2px 8px var(--accent-glow)",
+                                                                whiteSpace: "nowrap",
+                                                                width: "100%"
+                                                            }}
+                                                            onMouseOver={(e) => {
+                                                                e.currentTarget.style.background = "var(--accent-hover)";
+                                                                e.currentTarget.style.transform = "translateY(-1px)";
+                                                            }}
+                                                            onMouseOut={(e) => {
+                                                                e.currentTarget.style.background = "var(--accent)";
+                                                                e.currentTarget.style.transform = "translateY(0)";
+                                                            }}
+                                                            title={`Acessar oferta econômica no ${product.best_marketplace}`}
+                                                        >
+                                                            Econômico
+                                                            <ExternalLink size={12} />
+                                                        </a>
+                                                    ) : (
+                                                        <span style={{ fontSize: 12, color: "var(--text-secondary)" }}>
+                                                            {product.best_marketplace || "S/ Link"}
+                                                        </span>
+                                                    )}
+                                                </div>
+                                            ) : (
+                                                <span style={{ color: "var(--text-muted)" }}>---</span>
+                                            )}
+
+                                            {/* Mid Offer Link */}
+                                            {product.mid_price && (
+                                                <div style={{ display: "flex", flexDirection: "column", alignItems: "center", width: "100%" }}>
                                                     <a
-                                                        href={product.best_offer_url}
+                                                        href={product.mid_offer_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
                                                         style={{
@@ -415,45 +465,34 @@ export default function ProductsPage() {
                                                             alignItems: "center",
                                                             justifyContent: "center",
                                                             gap: 6,
-                                                            fontSize: 13,
-                                                            color: "white",
-                                                            background: "var(--accent)",
-                                                            border: "1px solid rgba(255, 255, 255, 0.1)",
-                                                            padding: "8px 16px",
+                                                            fontSize: 12,
+                                                            color: "var(--text-primary)",
+                                                            background: "rgba(255, 255, 255, 0.05)",
+                                                            border: "1px solid var(--border)",
+                                                            padding: "6px 12px",
                                                             borderRadius: 8,
                                                             textDecoration: "none",
                                                             fontWeight: 600,
                                                             transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
-                                                            boxShadow: "0 2px 8px var(--accent-glow)",
-                                                            whiteSpace: "nowrap"
+                                                            whiteSpace: "nowrap",
+                                                            width: "100%"
                                                         }}
                                                         onMouseOver={(e) => {
-                                                            e.currentTarget.style.background = "var(--accent-hover)";
-                                                            e.currentTarget.style.transform = "translateY(-2px)";
-                                                            e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
+                                                            e.currentTarget.style.background = "rgba(255, 255, 255, 0.1)";
+                                                            e.currentTarget.style.transform = "translateY(-1px)";
                                                         }}
                                                         onMouseOut={(e) => {
-                                                            e.currentTarget.style.background = "var(--accent)";
+                                                            e.currentTarget.style.background = "rgba(255, 255, 255, 0.05)";
                                                             e.currentTarget.style.transform = "translateY(0)";
-                                                            e.currentTarget.style.boxShadow = "0 2px 8px var(--accent-glow)";
                                                         }}
-                                                        title={`Acessar oferta no ${product.best_offer_marketplace}`}
+                                                        title={`Acessar oferta intermediária (+ -)`}
                                                     >
-                                                        Acessar Loja
-                                                        <ExternalLink size={14} />
+                                                        Intermediário
+                                                        <ExternalLink size={12} />
                                                     </a>
-                                                ) : (
-                                                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
-                                                        {product.best_offer_marketplace || "S/ Link"}
-                                                    </span>
-                                                )}
-                                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, textAlign: "center", maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                                                    {product.best_offer_marketplace}
                                                 </div>
-                                            </div>
-                                        ) : (
-                                            <span style={{ color: "var(--text-muted)" }}>---</span>
-                                        )}
+                                            )}
+                                        </div>
                                     </td>
                                     <td>
                                         <div style={{ color: "var(--text-muted)", fontSize: 13 }}>

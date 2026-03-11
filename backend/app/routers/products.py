@@ -44,12 +44,29 @@ def list_products(
         Product.project_id == project_id
     ).order_by(Product.created_at).all()
 
-    # Calculate min price for each product
+    # Calculate offers for each product
     response = []
     for p in products:
         best_offer = None
+        mid_offer = None
+        
         if p.offers:
-            best_offer = min(p.offers, key=lambda o: o.price)
+            # Sort offers: ML first, then by price
+            sorted_offers = sorted(p.offers, key=lambda o: (o.marketplace != "Mercado Livre", o.price))
+            
+            if sorted_offers:
+                best_offer = sorted_offers[0]
+                
+                # Try to find a mid offering (+ -)
+                # Let's pick one that is at least 10% more expensive but not the last one if possible
+                if len(sorted_offers) > 1:
+                    mid_candidates = [o for o in sorted_offers[1:] if o.price > best_offer.price * 1.05]
+                    if mid_candidates:
+                        # Pick middle of candidates or just the first if few
+                        mid_offer = mid_candidates[len(mid_candidates) // 2]
+                    else:
+                        # If no significantly different price, just pick the second one
+                        mid_offer = sorted_offers[1]
         
         response.append(
             ProductResponse(
@@ -63,6 +80,9 @@ def list_products(
                 min_price=best_offer.price if best_offer else None,
                 best_marketplace=best_offer.marketplace if best_offer else None,
                 best_offer_url=best_offer.url if best_offer else None,
+                mid_price=mid_offer.price if mid_offer else None,
+                mid_marketplace=mid_offer.marketplace if mid_offer else None,
+                mid_offer_url=mid_offer.url if mid_offer else None,
                 created_at=p.created_at,
             )
         )

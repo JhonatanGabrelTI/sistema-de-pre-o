@@ -18,6 +18,9 @@ class ProductResponse(BaseModel):
     min_price: Optional[float] = None
     best_marketplace: Optional[str] = None
     best_offer_url: Optional[str] = None
+    mid_price: Optional[float] = None
+    mid_marketplace: Optional[str] = None
+    mid_offer_url: Optional[str] = None
     created_at: datetime
 
     class Config:

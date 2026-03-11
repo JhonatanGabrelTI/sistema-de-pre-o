@@ -283,32 +283,32 @@ async def _scrape_shopee(product_name: str, limit: int = 3) -> List[Dict[str, An
         logger.error(f"Shopee Scraper failed: {e}")
         return []
 
-async def search_marketplace_prices(product_name: str, num_offers: int = 3) -> List[Dict[str, Any]]:
-    """Search for product prices across real marketplaces only."""
-    offers = []
+async def search_marketplace_prices(product_name: str, num_offers: int = 5) -> List[Dict[str, Any]]:
+    """Search for product prices across real marketplaces, prioritizing Mercado Livre."""
+    all_offers = []
     
-    # Try Mercado Livre first
-    ml_offers = await _scrape_mercado_livre(product_name, num_offers)
+    # 1. Try Mercado Livre first (Prioridade absoluta)
+    ml_offers = await _scrape_mercado_livre(product_name, limit=num_offers)
     if ml_offers:
-        offers.extend(ml_offers)
+        all_offers.extend(ml_offers)
     
-    # Try Amazon second
-    amz_offers = await _scrape_amazon(product_name, num_offers)
-    if amz_offers:
-        offers.extend(amz_offers)
+    # If ML results are less than what we need, check others to have variety
+    if len(all_offers) < 3:
+        # Try Amazon second
+        amz_offers = await _scrape_amazon(product_name, limit=3)
+        if amz_offers:
+            all_offers.extend(amz_offers)
 
-    # Try Magazine Luiza
-    magalu_offers = await _scrape_magalu(product_name, num_offers)
-    if magalu_offers:
-        offers.extend(magalu_offers)
+        # Try Magazine Luiza
+        magalu_offers = await _scrape_magalu(product_name, limit=2)
+        if magalu_offers:
+            all_offers.extend(magalu_offers)
 
-    # Try Shopee
-    shopee_offers = await _scrape_shopee(product_name, num_offers)
-    if shopee_offers:
-        offers.extend(shopee_offers)
+    # Sort all found offers. We prefer ML if available, then sort by price within groups.
+    all_offers.sort(key=lambda x: (x["marketplace"] != "Mercado Livre", x["price"]))
     
-    logger.info(f"Retrieved {len(offers)} real offers for '{product_name}'")
-    return offers
+    logger.info(f"Retrieved {len(all_offers)} real offers for '{product_name}' (ML prioritized)")
+    return all_offers[:10] 
 
 async def search_additional_offer(product_name: str, marketplace: str = None) -> Dict[str, Any]:
     """Search for one additional real offer."""

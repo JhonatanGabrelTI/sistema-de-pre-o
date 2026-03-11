@@ -9,13 +9,21 @@ from app.models.user import User
 from app.models.project import Project
 from app.models.product import Product
 from app.schemas.project import ProjectResponse, ProjectListResponse
-from app.services.pdf_service import extract_text_from_pdf, parse_products_from_text
+from app.services.pdf_service import (
+    extract_text_from_pdf, 
+    parse_products_from_text,
+    parse_products_from_pdf_vision
+)
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
 
 
-async def process_pdf_background(project_id: str, raw_text: str):
+def extraction_is_valid(extracao) -> bool:
+    """Helper to check if extraction result is valid."""
+    return hasattr(extracao, 'documento_valido') and extracao.documento_valido and extracao.lotes
+
+async def process_pdf_background(project_id: str, file_bytes: bytes):
     """Executado em segundo plano para extrair dados com IA sem travar a interface."""
     db: Session = SessionLocal()
     try:
@@ -23,10 +31,18 @@ async def process_pdf_background(project_id: str, raw_text: str):
         if not project:
             return
 
-        # Parse products via LLM
-        extracao = parse_products_from_text(raw_text)
+        # 1. Tenta extrair texto padrão
+        raw_text = extract_text_from_pdf(file_bytes)
         
-        if not hasattr(extracao, 'documento_valido') or not extracao.documento_valido or not extracao.lotes:
+        # 2. Se falhar ou for muito curto, usa VISION
+        if not raw_text or len(raw_text) < 100:
+            logger.info(f"PDF {project_id} sem texto. Ativando GPT-4o Vision OCR...")
+            extracao = parse_products_from_pdf_vision(file_bytes)
+        else:
+            # Parse products via LLM (Texto)
+            extracao = parse_products_from_text(raw_text)
+        
+        if not extraction_is_valid(extracao):
             # Document is invalid or empty
             project.status = "ERROR" # Ou outro status de erro que preferir
             db.commit()
@@ -98,9 +114,9 @@ async def upload_pdf(
     db.commit()
     db.refresh(project)
 
-    # Manda a string pesada de texto para a fila de background (IA da OpenAI + DB Save)
+    # Manda os bytes do arquivo para o background (IA Vision precisa do arquivo original)
     if background_tasks:
-        background_tasks.add_task(process_pdf_background, str(project.id), raw_text)
+        background_tasks.add_task(process_pdf_background, str(project.id), file_bytes)
 
     # A função original aguardava toda a extração. Retornamos imediatamente com contagem 0, 
     # pro frontend parar de girar o load. A página fará o auto-refresh.

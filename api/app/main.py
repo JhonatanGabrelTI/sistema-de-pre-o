@@ -43,12 +43,12 @@ app.include_router(offers.router)
 app.include_router(quotations.router)
 
 
-@app.get("/api/health")
+@app.get("/health")
 def health_check():
     return {"status": "healthy", "service": "Preço Inteligente API"}
 
 
-@app.get("/api/dashboard/stats")
+@app.get("/dashboard/stats")
 def dashboard_stats(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user)

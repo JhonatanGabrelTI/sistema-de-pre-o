@@ -8,7 +8,7 @@ from app.models.product import Product
 from app.schemas.product import ProductResponse, ProductStatusUpdate, ProductMarginUpdate, BulkMarginUpdate
 from app.utils.auth import get_current_user
 
-router = APIRouter(prefix="/api/products", tags=["Products"])
+router = APIRouter(prefix="/products", tags=["Products"])
 
 
 def _verify_product_ownership(product_id: str, current_user: User, db: Session) -> Product:

@@ -13,7 +13,7 @@ from app.schemas.quotation import QuotationResponse, QuotationItem
 from app.services.excel_service import generate_quotation_excel
 from app.utils.auth import get_current_user
 
-router = APIRouter(prefix="/api/quotations", tags=["Quotations"])
+router = APIRouter(prefix="/quotations", tags=["Quotations"])
 
 
 @router.post("/generate/{project_id}", response_model=QuotationResponse)

@@ -53,7 +53,7 @@ async def process_pdf_background(project_id: str, raw_text: str):
         
         # Busca automática no ML/Shopee em segundo plano
         from app.services.marketplace_service import search_and_save_offers
-        await search_and_save_offers(str(project.id), None)
+        await search_and_save_offers(str(project.id), db)
         
     except Exception as e:
         logger.error(f"Erro fatal processando PDF background do projeto {project_id}: {e}")
@@ -150,7 +150,7 @@ async def upload_manual(
     # Automatic search in background to not block the response
     from app.services.marketplace_service import search_and_save_offers
     if background_tasks:
-        background_tasks.add_task(search_and_save_offers, str(project.id), None)
+        background_tasks.add_task(search_and_save_offers, str(project.id), db)
 
     product_count = db.query(Product).filter(Product.project_id == project.id).count()
 

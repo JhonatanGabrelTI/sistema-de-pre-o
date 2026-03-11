@@ -98,8 +98,8 @@ async def upload_pdf(
         raise HTTPException(status_code=400, detail="Apenas arquivos PDF são aceitos")
 
     file_bytes = await file.read()
-    if len(file_bytes) > 4 * 1024 * 1024:  # Vercel limit is ~4.5MB, set to 4MB for safety
-        raise HTTPException(status_code=400, detail="Arquivo muito grande para Vercel (máx 4MB)")
+    if len(file_bytes) > 50 * 1024 * 1024:  # Set to 50MB for application-level limit
+        raise HTTPException(status_code=400, detail="Arquivo muito grande (máximo permitido: 50MB)")
 
     # Cria o projeto como "PROCESSING" IMEDIATAMENTE
     # Sem extrair texto agora para não travar a conexão

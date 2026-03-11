@@ -188,7 +188,7 @@ export default function UploadPage() {
                                         <p style={{ fontSize: 15, fontWeight: 500, marginBottom: 4 }}>
                                             {dragging ? "Solte o arquivo aqui" : "Arraste e solte o PDF aqui"}
                                         </p>
-                                        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>ou clique para selecionar (máx 10MB)</p>
+                                        <p style={{ fontSize: 13, color: "var(--text-muted)" }}>ou clique para selecionar (máx 50MB)</p>
                                     </div>
 
                                     {file && (

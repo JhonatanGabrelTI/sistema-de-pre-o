@@ -73,57 +73,59 @@ class ExtracaoEdital(BaseModel):
     lotes: List[LoteExtracted]
 
 def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
-    """Parse product list from extracted PDF text using OpenAI LLM."""
+    """Parse product list from extracted PDF text using OpenAI LLM with Smart Cropping."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         logger.error("OPENAI_API_KEY not found in environment variables.")
-        # Fallback empty extraction if no key is provided yet
         return ExtracaoEdital(documento_valido=False, lotes=[])
+
+    # --- SMART CROPPING LOGIC ---
+    # Find the most relevant parts of the document (usually Termo de Referência or tables)
+    keywords = [
+        "TERMO DE REFERÊNCIA", "QUADRO DE ITENS", "LOTE 01", "VALOR ESTIMADO", 
+        "DESCRIÇÃO DO OBJETO", "ESPECIFICAÇÕES TÉCNICAS", "ANEXO I"
+    ]
+    
+    start_pos = -1
+    for kw in keywords:
+        pos = raw_text.upper().find(kw)
+        if pos != -1:
+            if start_pos == -1 or pos < start_pos:
+                start_pos = pos
+    
+    # If found a keyword, start 500 chars before it to catch titles, otherwise start at 0
+    start_point = max(0, start_pos - 500) if start_pos != -1 else 0
+    # Take up to 25.000 characters (more than enough for most item lists and faster than 40k)
+    truncated_text = raw_text[start_point : start_point + 25000]
+    
+    logger.info(f"PDF AI Parse: Text cropped at position {start_point}, sending {len(truncated_text)} chars.")
 
     try:
         client = OpenAI(api_key=api_key)
         
         system_prompt = """# ROLE E OBJETIVO
-Você é uma API de Extração de Dados e Processamento de Linguagem Natural (NLP) especializada em licitações públicas brasileiras (Pregão Eletrônico, Concorrência, Dispensa).
-Sua ÚNICA função é receber o texto de um edital em PDF, ignorar todo o jargão jurídico, localizar o "Termo de Referência" (ou lista de lotes/itens) e extrair os produtos/serviços a serem adquiridos.
+Você é uma API ultra-rápida de Extração de Dados. Sua missão é localizar a tabela de itens/produtos em um edital.
+Ignore textos jurídicos, leis e preâmbulos. Foco total em: Item, Descrição, Unidade, Quantidade e Preço.
 
-# DIRETRIZES DE COMPORTAMENTO E EXCLUSÃO (STRICT)
-1. ZERO RUÍDO: Ignore editais, preâmbulos, leis (ex: Lei 14.133), regras de habilitação, minutas de contrato, índices, cabeçalhos e rodapés gerados pelo leitor de PDF (ex: "--- PAGE X ---").
-2. FOCO EXCLUSIVO: Procure por tabelas ou listas descritivas que contenham "Item", "Descrição", "Quantidade", "Unidade" e "Valor".
-3. TRATAMENTO DE TEXTO QUEBRADO: Documentos em PDF frequentemente quebram descrições de itens em várias linhas. Você DEVE unificar essas linhas em uma string contínua, removendo quebras de linha (\\n) desnecessárias dentro da descrição do produto.
-4. NORMALIZAÇÃO NUMÉRICA: Converta todas as quantidades e valores monetários para o formato numérico universal (float). 
-   - Exemplo: "R$ 1.500,50" DEVE virar 1500.50.
-   - Exemplo: "1.000" (quantidade) DEVE virar 1000.
-   - Se um valor não existir, use null (não use "0" ou strings vazias).
-
-PROCEDIMENTO INTERNO (CHAIN OF THOUGHT)
-Antes de gerar o JSON, siga silenciosamente estes passos:
-1. Escaneie o documento buscando a palavra "Lote" ou "Item" associada a tabelas de preços/quantidades.
-2. Isole mentalmente o conteúdo do Termo de Referência.
-3. Extraia linha por linha, associando os itens aos seus respectivos lotes.
-4. Aplique a normalização numérica e de texto.
-5. Valide se a estrutura corresponde exatamente ao Schema exigido.
+# REGRAS CRÍTICAS
+1. UNIFIQUE DESCRIÇÕES: Se o PDF quebrou a descrição de um item em várias linhas, junte-as em uma só.
+2. LIMPEZA: Remova lixo de cabeçalho/rodapé que possa estar entre os itens.
+3. NUMÉRICOS: Converta "R$ 1.234,56" para 1234.56.
+4. LOTE: Extraia o número do lote se disponível.
 """
         
-        # We need to limit the text size so we don't blow up the context window excessively
-        # PDFs can be huge. We'll take up to the first 40000 characters (approx 10k tokens)
-        truncated_text = raw_text[:40000]
-
         completion = client.beta.chat.completions.parse(
-            model="gpt-4o-mini",
+            model="gpt-4o-mini", # Using mini for speed and cost effectiveness
             messages=[
                 {"role": "system", "content": system_prompt},
-                {"role": "user", "content": f"Texto do edital:\n\n{truncated_text}"}
+                {"role": "user", "content": f"Extraia os itens deste texto:\n\n{truncated_text}"}
             ],
             response_format=ExtracaoEdital,
             temperature=0.0
         )
         
         result = completion.choices[0].message.parsed
-        if result:
-            return result
-            
-        return ExtracaoEdital(documento_valido=False, lotes=[])
+        return result if result else ExtracaoEdital(documento_valido=False, lotes=[])
         
     except Exception as e:
         logger.error(f"Error during OpenAI extraction: {e}")

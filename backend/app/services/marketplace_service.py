@@ -332,33 +332,50 @@ async def search_and_save_offers(project_id: str, db=None):
         standalone = True
         
     try:
+    try:
         products = db.query(Product).filter(Product.project_id == project_id).all()
         total_offers = 0
 
-        for product in products:
+        import asyncio
+        semaphore = asyncio.Semaphore(5) # Limit to 5 simultaneous searches
+
+        async def process_single_product(product):
             # Check if already has real offers
             existing = db.query(Offer).filter(Offer.product_id == product.id).count()
             if existing > 0:
-                continue
+                return 0
 
-            offers_data = await search_marketplace_prices(product.name)
-            if not offers_data:
-                logger.warning(f"No real offers found for: {product.name}")
-                continue
+            async with semaphore:
+                try:
+                    # We use a smaller num_offers per product for speed, picking the best and mid later
+                    offers_data = await search_marketplace_prices(product.name, num_offers=3)
+                    if not offers_data:
+                        logger.warning(f"No real offers found for: {product.name}")
+                        return 0
 
-            for o in offers_data:
-                offer = Offer(
-                    product_id=product.id,
-                    marketplace=o["marketplace"],
-                    title=o["title"],
-                    price=o["price"],
-                    shipping=o["shipping"],
-                    delivery_days=o["delivery_days"],
-                    seller_rating=o["seller_rating"],
-                    url=o["url"],
-                )
-                db.add(offer)
-                total_offers += 1
+                    count = 0
+                    for o in offers_data:
+                        offer = Offer(
+                            product_id=product.id,
+                            marketplace=o["marketplace"],
+                            title=o["title"],
+                            price=o["price"],
+                            shipping=o["shipping"],
+                            delivery_days=o["delivery_days"],
+                            seller_rating=o["seller_rating"],
+                            url=o["url"],
+                        )
+                        db.add(offer)
+                        count += 1
+                    return count
+                except Exception as ex:
+                    logger.error(f"Error searching product {product.name}: {ex}")
+                    return 0
+
+        # Run all searches in parallel
+        tasks = [process_single_product(p) for p in products]
+        results = await asyncio.gather(*tasks)
+        total_offers = sum(results)
 
         db.commit()
         return total_offers

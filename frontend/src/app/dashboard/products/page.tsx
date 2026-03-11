@@ -25,6 +25,8 @@ export default function ProductsPage() {
     const [filterStatus, setFilterStatus] = useState("ALL");
     const [globalMargin, setGlobalMargin] = useState("");
     const [searching, setSearching] = useState(false);
+    const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
+    const [isUpdating, setIsUpdating] = useState(false);
 
     useEffect(() => {
         api.projects
@@ -94,6 +96,49 @@ export default function ProductsPage() {
         const matchStatus = filterStatus === "ALL" || p.status === filterStatus;
         return matchSearch && matchStatus;
     });
+
+    const handleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
+        if (e.target.checked) {
+            setSelectedProductIds(filtered.map(p => p.id));
+        } else {
+            setSelectedProductIds([]);
+        }
+    };
+
+    const handleSelect = (id: string) => {
+        setSelectedProductIds(prev => 
+            prev.includes(id) ? prev.filter(pId => pId !== id) : [...prev, id]
+        );
+    };
+
+    const bulkUpdateStatus = async (status: string) => {
+        if (selectedProductIds.length === 0) return;
+        const actionName = status === "APPROVED" ? "aprovar" : "descartar";
+        if (!confirm(`Tem certeza que deseja ${actionName} ${selectedProductIds.length} produtos?`)) return;
+        
+        setIsUpdating(true);
+        try {
+            await Promise.all(selectedProductIds.map(id => api.products.updateStatus(id, status)));
+            setProducts(prev => prev.map(p => selectedProductIds.includes(p.id) ? { ...p, status } : p));
+            setSelectedProductIds([]);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
+
+    const bulkDelete = async () => {
+        if (selectedProductIds.length === 0) return;
+        if (!confirm(`Tem certeza que deseja remover ${selectedProductIds.length} produtos?`)) return;
+        
+        setIsUpdating(true);
+        try {
+            await Promise.all(selectedProductIds.map(id => api.products.delete(id)));
+            setProducts(prev => prev.filter(p => !selectedProductIds.includes(p.id)));
+            setSelectedProductIds([]);
+        } finally {
+            setIsUpdating(false);
+        }
+    };
 
     const statusBadge = (status: string) => {
         const map: Record<string, { cls: string; icon: any }> = {
@@ -228,6 +273,53 @@ export default function ProductsPage() {
                 </button>
             </div>
 
+            {/* Bulk Actions */}
+            {selectedProductIds.length > 0 && (
+                <motion.div 
+                    initial={{ opacity: 0, height: 0 }} 
+                    animate={{ opacity: 1, height: "auto" }}
+                    style={{
+                        display: "flex",
+                        gap: 12,
+                        alignItems: "center",
+                        marginBottom: 20,
+                        padding: "12px 16px",
+                        background: "rgba(99, 102, 241, 0.05)",
+                        borderRadius: 10,
+                        border: "1px solid rgba(99, 102, 241, 0.2)",
+                    }}
+                >
+                    <span style={{ fontSize: 13, fontWeight: 600, color: "var(--accent)" }}>
+                        {selectedProductIds.length} selecionado{selectedProductIds.length > 1 ? "s" : ""}
+                    </span>
+                    <div style={{ width: 1, height: 24, background: "rgba(99, 102, 241, 0.2)", margin: "0 8px" }} />
+                    <button 
+                        onClick={() => bulkUpdateStatus("APPROVED")} 
+                        disabled={isUpdating}
+                        className="btn-secondary" 
+                        style={{ padding: "8px 14px", display: "flex", gap: 6, alignItems: "center", borderColor: "rgba(34,197,94,0.3)", color: "#22c55e", fontSize: 13 }}
+                    >
+                        <Check size={14} /> Aprovar Selecionados
+                    </button>
+                    <button 
+                        onClick={() => bulkUpdateStatus("DISCARDED")} 
+                        disabled={isUpdating}
+                        className="btn-secondary" 
+                        style={{ padding: "8px 14px", display: "flex", gap: 6, alignItems: "center", borderColor: "rgba(239,68,68,0.3)", color: "#ef4444", fontSize: 13 }}
+                    >
+                        <X size={14} /> Descartar Selecionados
+                    </button>
+                    <button 
+                        onClick={bulkDelete} 
+                        disabled={isUpdating}
+                        className="btn-secondary" 
+                        style={{ padding: "8px 14px", display: "flex", gap: 6, alignItems: "center", borderColor: "rgba(239,68,68,0.3)", color: "#f87171", marginLeft: "auto", fontSize: 13 }}
+                    >
+                        <Trash2 size={14} /> Remover Selecionados
+                    </button>
+                </motion.div>
+            )}
+
             {/* Table */}
             <motion.div
                 initial={{ opacity: 0 }}
@@ -239,9 +331,21 @@ export default function ProductsPage() {
                 <table className="data-table">
                     <thead>
                         <tr>
+                            <th style={{ width: 40, textAlign: "center" }}>
+                                <input 
+                                    type="checkbox" 
+                                    checked={filtered.length > 0 && selectedProductIds.length === filtered.length}
+                                    onChange={handleSelectAll}
+                                    style={{ cursor: "pointer", width: 16, height: 16 }}
+                                />
+                            </th>
+                            <th>Lote</th>
                             <th>Produto</th>
+                            <th>Unid.</th>
                             <th>Qtd</th>
+                            <th>V. Unit. Edital</th>
                             <th>Custo Unit.</th>
+                            <th>Acessar Link</th>
                             <th>Custo Total</th>
                             <th>Margem (%)</th>
                             <th>Sugestão Venda (Unid.)</th>
@@ -253,7 +357,7 @@ export default function ProductsPage() {
                         {loading ? (
                             Array.from({ length: 5 }).map((_, i) => (
                                 <tr key={i}>
-                                    {Array.from({ length: 5 }).map((_, j) => (
+                                    {Array.from({ length: 13 }).map((_, j) => (
                                         <td key={j}>
                                             <div className="skeleton" style={{ height: 20, width: "80%" }} />
                                         </td>
@@ -262,37 +366,93 @@ export default function ProductsPage() {
                             ))
                         ) : filtered.length === 0 ? (
                             <tr>
-                                <td colSpan={8} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
+                                <td colSpan={13} style={{ textAlign: "center", padding: 40, color: "var(--text-muted)" }}>
                                     <Package size={40} style={{ opacity: 0.3, marginBottom: 8 }} />
                                     <div>Nenhum produto encontrado</div>
                                 </td>
                             </tr>
                         ) : (
                             filtered.map((product) => (
-                                <tr key={product.id}>
+                                <tr key={product.id} style={{ background: selectedProductIds.includes(product.id) ? "rgba(99, 102, 241, 0.05)" : "transparent" }}>
+                                    <td style={{ textAlign: "center" }}>
+                                        <input 
+                                            type="checkbox" 
+                                            checked={selectedProductIds.includes(product.id)}
+                                            onChange={() => handleSelect(product.id)}
+                                            style={{ cursor: "pointer", width: 16, height: 16 }}
+                                        />
+                                    </td>
+                                    <td>
+                                        <span style={{ background: "rgba(255,255,255,0.05)", padding: "4px 8px", borderRadius: 4, fontSize: 13, border: "1px solid rgba(255,255,255,0.1)", whiteSpace: "nowrap" }}>
+                                            {product.numero_lote || "-"}
+                                        </span>
+                                    </td>
                                     <td style={{ fontWeight: 500, maxWidth: 300 }}>{product.name}</td>
+                                    <td style={{ color: "var(--text-secondary)", fontSize: 13 }}>{product.unidade_medida || "un"}</td>
                                     <td>{product.quantity}</td>
+                                    <td>
+                                        <div style={{ color: "var(--text-secondary)", fontSize: 13, whiteSpace: "nowrap" }}>
+                                            {product.valor_unitario_estimado ? `R$ ${product.valor_unitario_estimado.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}` : "-"}
+                                        </div>
+                                    </td>
                                     <td>
                                         <div style={{ color: "var(--text-primary)", fontWeight: 600 }}>
                                             {product.min_price
                                                 ? `R$ ${product.min_price.toLocaleString('pt-BR', { minimumFractionDigits: 2 })}`
                                                 : (searching ? "Buscando..." : "Pendente")}
                                         </div>
-                                        {product.min_price && (
-                                            <div style={{ display: "flex", alignItems: "center", gap: 4, marginTop: 4, fontSize: 11, color: "var(--text-secondary)" }}>
-                                                <span>{product.best_offer_marketplace}</span>
-                                                {product.best_offer_url && (
+                                    </td>
+                                    <td>
+                                        {product.min_price ? (
+                                            <div style={{ display: "flex", flexDirection: "column", alignItems: "center" }}>
+                                                {product.best_offer_url ? (
                                                     <a
                                                         href={product.best_offer_url}
                                                         target="_blank"
                                                         rel="noopener noreferrer"
-                                                        style={{ color: "var(--accent)", display: "flex" }}
-                                                        title="Ver no site"
+                                                        style={{
+                                                            display: "inline-flex",
+                                                            alignItems: "center",
+                                                            justifyContent: "center",
+                                                            gap: 6,
+                                                            fontSize: 13,
+                                                            color: "white",
+                                                            background: "var(--accent)",
+                                                            border: "1px solid rgba(255, 255, 255, 0.1)",
+                                                            padding: "8px 16px",
+                                                            borderRadius: 8,
+                                                            textDecoration: "none",
+                                                            fontWeight: 600,
+                                                            transition: "all 0.2s cubic-bezier(0.16, 1, 0.3, 1)",
+                                                            boxShadow: "0 2px 8px var(--accent-glow)",
+                                                            whiteSpace: "nowrap"
+                                                        }}
+                                                        onMouseOver={(e) => {
+                                                            e.currentTarget.style.background = "var(--accent-hover)";
+                                                            e.currentTarget.style.transform = "translateY(-2px)";
+                                                            e.currentTarget.style.boxShadow = "0 4px 12px rgba(99, 102, 241, 0.4)";
+                                                        }}
+                                                        onMouseOut={(e) => {
+                                                            e.currentTarget.style.background = "var(--accent)";
+                                                            e.currentTarget.style.transform = "translateY(0)";
+                                                            e.currentTarget.style.boxShadow = "0 2px 8px var(--accent-glow)";
+                                                        }}
+                                                        title={`Acessar oferta no ${product.best_offer_marketplace}`}
                                                     >
-                                                        <ExternalLink size={10} />
+                                                        Acessar Loja
+                                                        <ExternalLink size={14} />
                                                     </a>
+                                                ) : (
+                                                    <span style={{ fontSize: 13, color: "var(--text-secondary)" }}>
+                                                        {product.best_offer_marketplace || "S/ Link"}
+                                                    </span>
                                                 )}
+                                                <div style={{ fontSize: 11, color: "var(--text-muted)", marginTop: 6, textAlign: "center", maxWidth: 120, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+                                                    {product.best_offer_marketplace}
+                                                </div>
                                             </div>
+                                        ) : (
+                                            <span style={{ color: "var(--text-muted)" }}>---</span>
                                         )}
                                     </td>
                                     <td>

@@ -8,6 +8,10 @@ class ProductResponse(BaseModel):
     project_id: str
     name: str
     description: Optional[str] = None
+    numero_lote: Optional[str] = None
+    unidade_medida: Optional[str] = None
+    valor_unitario_estimado: Optional[float] = None
+    valor_total_estimado: Optional[float] = None
     quantity: int
     status: str
     margin: float

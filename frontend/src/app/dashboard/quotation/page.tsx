@@ -23,6 +23,7 @@ export default function QuotationPage() {
     const [loading, setLoading] = useState(true);
     const [generating, setGenerating] = useState(false);
     const [exporting, setExporting] = useState(false);
+    const [exportingExcel, setExportingExcel] = useState(false);
     const [error, setError] = useState("");
 
     useEffect(() => {
@@ -132,6 +133,36 @@ export default function QuotationPage() {
         }
     };
 
+    const handleExportExcel = async () => {
+        if (!selectedProject) return;
+        setExportingExcel(true);
+        try {
+            const project = projects.find(p => p.id === selectedProject);
+            const token = localStorage.getItem("token");
+            
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/quotations/export/${selectedProject}`, {
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (!response.ok) throw new Error("Erro ao gerar planilha");
+
+            const blob = await response.blob();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `orcamento_${project?.name?.replace(/\s+/g, "_").toLowerCase() || "doc"}.xlsx`;
+            document.body.appendChild(a);
+            a.click();
+            a.remove();
+        } catch (err: any) {
+            setError(err.message || "Erro ao exportar Excel");
+        } finally {
+            setExportingExcel(false);
+        }
+    };
+
     return (
         <div>
             <motion.div initial={{ opacity: 0, y: -10 }} animate={{ opacity: 1, y: 0 }}>
@@ -185,26 +216,49 @@ export default function QuotationPage() {
                 </button>
 
                 {quotation && (
-                    <button
-                        onClick={handleExport}
-                        disabled={exporting}
-                        className="btn-secondary"
-                        style={{
-                            display: "flex",
-                            alignItems: "center",
-                            gap: 6,
-                            padding: "10px 20px",
-                            borderColor: "#22c55e",
-                            color: "#22c55e",
-                        }}
-                    >
-                        {exporting ? (
-                            <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
-                        ) : (
-                            <FileText size={16} />
-                        )}
-                        Exportar PDF
-                    </button>
+                    <div style={{ display: "flex", gap: 12 }}>
+                        <button
+                            onClick={handleExport}
+                            disabled={exporting}
+                            className="btn-secondary"
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "10px 20px",
+                                borderColor: "#22c55e",
+                                color: "#22c55e",
+                            }}
+                        >
+                            {exporting ? (
+                                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                            ) : (
+                                <FileText size={16} />
+                            )}
+                            Exportar PDF
+                        </button>
+
+                        <button
+                            onClick={handleExportExcel}
+                            disabled={exportingExcel}
+                            className="btn-secondary"
+                            style={{
+                                display: "flex",
+                                alignItems: "center",
+                                gap: 6,
+                                padding: "10px 20px",
+                                borderColor: "#3b82f6",
+                                color: "#3b82f6",
+                            }}
+                        >
+                            {exportingExcel ? (
+                                <Loader2 size={16} style={{ animation: "spin 1s linear infinite" }} />
+                            ) : (
+                                <FileSpreadsheet size={16} />
+                            )}
+                            Exportar Excel
+                        </button>
+                    </div>
                 )}
             </div>
 

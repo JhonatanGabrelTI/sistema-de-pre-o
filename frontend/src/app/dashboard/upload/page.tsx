@@ -302,7 +302,10 @@ export default function UploadPage() {
                         Projeto: <strong>{result.name}</strong>
                     </p>
                     <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 24 }}>
-                        {result.product_count} produtos em análise
+                        {mode === "pdf" 
+                            ? "A Inteligência Artificial está extraindo os dados em segundo plano. Você já pode navegar pelo sistema enquanto isso."
+                            : `${result.product_count} produtos em análise`
+                        }
                     </p>
                     <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                         <button onClick={() => router.push("/dashboard/products")} className="btn-primary" style={{ padding: "12px 24px" }}>

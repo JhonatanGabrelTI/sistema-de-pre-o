@@ -13,6 +13,10 @@ class Product(Base):
     project_id = Column(UUID(as_uuid=True), ForeignKey("projects.id"), nullable=False)
     name = Column(String, nullable=False)
     description = Column(String, nullable=True)
+    numero_lote = Column(String, nullable=True)
+    unidade_medida = Column(String, nullable=True)
+    valor_unitario_estimado = Column(Float, nullable=True)
+    valor_total_estimado = Column(Float, nullable=True)
     quantity = Column(Integer, default=1)
     status = Column(String, default="PENDING")  # PENDING, APPROVED, DISCARDED
     margin = Column(Float, default=30.0)

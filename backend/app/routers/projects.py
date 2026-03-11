@@ -1,7 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException, UploadFile, File, Form, BackgroundTasks
 from sqlalchemy.orm import Session
 from typing import List
-from app.database import get_db
+import logging
+from app.database import get_db, SessionLocal
+
+logger = logging.getLogger(__name__)
 from app.models.user import User
 from app.models.project import Project
 from app.models.product import Product
@@ -10,6 +13,59 @@ from app.services.pdf_service import extract_text_from_pdf, parse_products_from_
 from app.utils.auth import get_current_user
 
 router = APIRouter(prefix="/api/projects", tags=["Projects"])
+
+
+def process_pdf_background(project_id: str, raw_text: str):
+    """Executado em segundo plano para extrair dados com IA sem travar a interface."""
+    db: Session = SessionLocal()
+    try:
+        project = db.query(Project).filter(Project.id == project_id).first()
+        if not project:
+            return
+
+        # Parse products via LLM
+        extracao = parse_products_from_text(raw_text)
+        
+        if not hasattr(extracao, 'documento_valido') or not extracao.documento_valido or not extracao.lotes:
+            # Document is invalid or empty
+            project.status = "ERROR" # Ou outro status de erro que preferir
+            db.commit()
+            return
+            
+        for lote in extracao.lotes:
+            lote_num = str(lote.numero_lote) if lote.numero_lote else None
+            for item in lote.itens:
+                product = Product(
+                    project_id=project.id,
+                    numero_lote=lote_num,
+                    name=f"Item {item.numero_item} - {item.descricao}" if item.numero_item else item.descricao,
+                    description=item.descricao,
+                    quantity=int(item.quantidade) if item.quantidade else 1,
+                    unidade_medida=item.unidade_medida,
+                    valor_unitario_estimado=item.valor_unitario_estimado,
+                    valor_total_estimado=item.valor_total_estimado
+                )
+                db.add(product)
+
+        project.status = "READY"
+        db.commit()
+        db.refresh(project)
+        
+        # Busca automática no ML/Shopee em segundo plano
+        from app.services.marketplace_service import search_and_save_offers
+        search_and_save_offers(str(project.id), None)
+        
+    except Exception as e:
+        logger.error(f"Erro fatal processando PDF background do projeto {project_id}: {e}")
+        try:
+            project = db.query(Project).filter(Project.id == project_id).first()
+            if project:
+                project.status = "ERROR"
+                db.commit()
+        except:
+            pass
+    finally:
+        db.close()
 
 
 @router.post("/upload", response_model=ProjectResponse)
@@ -27,10 +83,10 @@ async def upload_pdf(
     if len(file_bytes) > 10 * 1024 * 1024:  # 10MB limit
         raise HTTPException(status_code=400, detail="Arquivo muito grande (máx 10MB)")
 
-    # Extract text
+    # Extrai o "texto burro" (rápido, pdfplumber local apenas)
     raw_text = extract_text_from_pdf(file_bytes)
 
-    # Create project
+    # Cria o projeto como "PROCESSANDO"
     project = Project(
         user_id=current_user.id,
         name=name,
@@ -42,36 +98,19 @@ async def upload_pdf(
     db.commit()
     db.refresh(project)
 
-    # Parse products
-    products_data = parse_products_from_text(raw_text)
-
-    for prod_name, qty in products_data:
-        product = Product(
-            project_id=project.id,
-            name=prod_name,
-            quantity=qty,
-        )
-        db.add(product)
-
-    project.status = "READY"
-    db.commit()
-    db.refresh(project)
-
-    # Automatic search in background to not block the response
-    from app.services.marketplace_service import search_and_save_offers
+    # Manda a string pesada de texto para a fila de background (IA da OpenAI + DB Save)
     if background_tasks:
-        # Passing None tells search_and_save_offers to create its own stable DB session
-        background_tasks.add_task(search_and_save_offers, str(project.id), None)
+        background_tasks.add_task(process_pdf_background, str(project.id), raw_text)
 
-    product_count = db.query(Product).filter(Product.project_id == project.id).count()
-
+    # A função original aguardava toda a extração. Retornamos imediatamente com contagem 0, 
+    # pro frontend parar de girar o load. A página fará o auto-refresh.
     return ProjectResponse(
         id=str(project.id),
         name=project.name,
         pdf_filename=project.pdf_filename,
         status=project.status,
         created_at=project.created_at,
-        product_count=product_count,
+        product_count=0,
     )
 
 

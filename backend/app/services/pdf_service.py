@@ -1,7 +1,7 @@
 import re
 import io
 import logging
-from typing import List, Tuple
+from typing import List, Tuple, Optional, Optional
 
 logger = logging.getLogger(__name__)
 
@@ -52,74 +52,79 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     return text.strip() if text.strip() else "Não foi possível extrair texto do PDF."
 
 
-def parse_products_from_text(raw_text: str) -> List[Tuple[str, int]]:
-    """Parse product list from extracted PDF text.
-    
-    Attempts to identify product names and quantities using common patterns.
-    Returns list of (product_name, quantity) tuples.
-    """
-    products = []
-    lines = raw_text.split("\n")
+import os
+from pydantic import BaseModel, Field
+from openai import OpenAI
 
-    for line in lines:
-        line = line.strip()
-        if not line or len(line) < 3:
-            continue
+class ItemExtracted(BaseModel):
+    numero_item: int
+    descricao: str
+    quantidade: float
+    unidade_medida: str
+    valor_unitario_estimado: Optional[float]
+    valor_total_estimado: Optional[float]
 
-        # Skip header-like lines
-        if any(kw in line.lower() for kw in ["total", "subtotal", "desconto", "frete", "imposto", "---", "===", "página"]):
-            continue
+class LoteExtracted(BaseModel):
+    numero_lote: Optional[str] = Field(None, description="Identificador do lote (ex: 1, 2, 'Lote Único')")
+    itens: List[ItemExtracted]
 
-        # Pattern: quantity at beginning — "2x Produto" or "2 - Produto" or "2 un Produto"
-        match = re.match(r'^(\d+)\s*[xX×\-–—]?\s*(?:un\.?|und\.?|pç\.?|pc\.?)?\s+(.+)', line)
-        if match:
-            qty = int(match.group(1))
-            name = match.group(2).strip()
-            if qty > 0 and len(name) > 2:
-                products.append((name, qty))
-                continue
+class ExtracaoEdital(BaseModel):
+    documento_valido: bool = Field(..., description="true se encontrou itens de compra, false se não encontrou")
+    lotes: List[LoteExtracted]
 
-        # Pattern: quantity at end — "Produto ... 2"
-        match = re.match(r'^(.+?)\s+(\d+)\s*(?:un\.?|und\.?|pç\.?|pc\.?)?\s*$', line)
-        if match:
-            name = match.group(1).strip()
-            qty = int(match.group(2))
-            if qty > 0 and qty < 10000 and len(name) > 2:
-                products.append((name, qty))
-                continue
+def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
+    """Parse product list from extracted PDF text using OpenAI LLM."""
+    api_key = os.getenv("OPENAI_API_KEY")
+    if not api_key:
+        logger.error("OPENAI_API_KEY not found in environment variables.")
+        # Fallback empty extraction if no key is provided yet
+        return ExtracaoEdital(documento_valido=False, lotes=[])
 
-        # Pattern: tabular — "Item | Produto | Qty" or similar with tabs/multiple spaces
-        parts = re.split(r'\t+|\s{2,}', line)
-        if len(parts) >= 2:
-            # Try to find a number in the parts
-            for i, part in enumerate(parts):
-                part = part.strip()
-                if part.isdigit() and int(part) > 0 and int(part) < 10000:
-                    name_parts = [p.strip() for j, p in enumerate(parts) if j != i and p.strip() and not p.strip().isdigit()]
-                    if name_parts:
-                        name = " ".join(name_parts)
-                        if len(name) > 2:
-                            products.append((name, int(part)))
-                            break
-            else:
-                # No quantity found, assume 1
-                name = line.strip()
-                if len(name) > 3 and not name.isdigit():
-                    products.append((name, 1))
-                continue
-            continue
+    try:
+        client = OpenAI(api_key=api_key)
+        
+        system_prompt = """# ROLE E OBJETIVO
+Você é uma API de Extração de Dados e Processamento de Linguagem Natural (NLP) especializada em licitações públicas brasileiras (Pregão Eletrônico, Concorrência, Dispensa).
+Sua ÚNICA função é receber o texto de um edital em PDF, ignorar todo o jargão jurídico, localizar o "Termo de Referência" (ou lista de lotes/itens) e extrair os produtos/serviços a serem adquiridos.
 
-        # Default: treat entire line as product with quantity 1
-        if len(line) > 3 and not line.isdigit() and not re.match(r'^[\d\s\.\,]+$', line):
-            products.append((line, 1))
+# DIRETRIZES DE COMPORTAMENTO E EXCLUSÃO (STRICT)
+1. ZERO RUÍDO: Ignore editais, preâmbulos, leis (ex: Lei 14.133), regras de habilitação, minutas de contrato, índices, cabeçalhos e rodapés gerados pelo leitor de PDF (ex: "--- PAGE X ---").
+2. FOCO EXCLUSIVO: Procure por tabelas ou listas descritivas que contenham "Item", "Descrição", "Quantidade", "Unidade" e "Valor".
+3. TRATAMENTO DE TEXTO QUEBRADO: Documentos em PDF frequentemente quebram descrições de itens em várias linhas. Você DEVE unificar essas linhas em uma string contínua, removendo quebras de linha (\\n) desnecessárias dentro da descrição do produto.
+4. NORMALIZAÇÃO NUMÉRICA: Converta todas as quantidades e valores monetários para o formato numérico universal (float). 
+   - Exemplo: "R$ 1.500,50" DEVE virar 1500.50.
+   - Exemplo: "1.000" (quantidade) DEVE virar 1000.
+   - Se um valor não existir, use null (não use "0" ou strings vazias).
 
-    # Deduplicate
-    seen = {}
-    for name, qty in products:
-        normalized = re.sub(r'\s+', ' ', name.lower().strip())
-        if normalized in seen:
-            seen[normalized] = (name, seen[normalized][1] + qty)
-        else:
-            seen[normalized] = (name, qty)
+PROCEDIMENTO INTERNO (CHAIN OF THOUGHT)
+Antes de gerar o JSON, siga silenciosamente estes passos:
+1. Escaneie o documento buscando a palavra "Lote" ou "Item" associada a tabelas de preços/quantidades.
+2. Isole mentalmente o conteúdo do Termo de Referência.
+3. Extraia linha por linha, associando os itens aos seus respectivos lotes.
+4. Aplique a normalização numérica e de texto.
+5. Valide se a estrutura corresponde exatamente ao Schema exigido.
+"""
+        
+        # We need to limit the text size so we don't blow up the context window excessively
+        # PDFs can be huge. We'll take up to the first 40000 characters (approx 10k tokens)
+        truncated_text = raw_text[:40000]
 
-    return [(name, qty) for name, qty in seen.values()]
+        completion = client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": f"Texto do edital:\n\n{truncated_text}"}
+            ],
+            response_format=ExtracaoEdital,
+            temperature=0.0
+        )
+        
+        result = completion.choices[0].message.parsed
+        if result:
+            return result
+            
+        return ExtracaoEdital(documento_valido=False, lotes=[])
+        
+    except Exception as e:
+        logger.error(f"Error during OpenAI extraction: {e}")
+        return ExtracaoEdital(documento_valido=False, lotes=[])

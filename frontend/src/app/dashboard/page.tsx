@@ -109,9 +109,11 @@ export default function DashboardPage() {
                     </p>
                 </div>
                 <div className="flex flex-row w-full md:w-auto gap-3 mt-4 md:mt-0">
-                    <button className="btn-secondary flex-1 md:flex-none" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
-                        <ArrowRight size={16} /> <span className="hidden sm:inline">Exportar Relatório</span><span className="sm:hidden">Exportar</span>
-                    </button>
+                    <Link href="/dashboard/quotation" className="flex-1 md:flex-none">
+                        <button className="btn-secondary w-full" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
+                            <ArrowRight size={16} /> <span className="hidden sm:inline">Exportar Relatório</span><span className="sm:hidden">Exportar</span>
+                        </button>
+                    </Link>
                     <Link href="/dashboard/upload" className="flex-1 md:flex-none">
                         <button className="btn-primary w-full" style={{ display: "flex", alignItems: "center", justifyContent: "center", gap: 8 }}>
                             <Upload size={16} /> Nova Análise

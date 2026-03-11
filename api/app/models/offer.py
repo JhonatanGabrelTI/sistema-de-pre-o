@@ -10,7 +10,7 @@ class Offer(Base):
     __tablename__ = "offers"
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False)
+    product_id = Column(UUID(as_uuid=True), ForeignKey("products.id"), nullable=False, index=True)
     marketplace = Column(String, nullable=False)  # mercadolivre, shopee, amazon
     title = Column(String, nullable=True)
     price = Column(Float, nullable=False)

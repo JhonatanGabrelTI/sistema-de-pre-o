@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from typing import List
 from app.database import get_db
 from app.models.user import User
@@ -12,7 +12,7 @@ router = APIRouter(prefix="/api/products", tags=["Products"])
 
 
 def _verify_product_ownership(product_id: str, current_user: User, db: Session) -> Product:
-    product = db.query(Product).filter(Product.id == product_id).first()
+    product = db.query(Product).options(joinedload(Product.offers)).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Produto não encontrado")
 
@@ -40,7 +40,8 @@ def list_products(
     if not project:
         raise HTTPException(status_code=404, detail="Projeto não encontrado")
 
-    products = db.query(Product).filter(
+    # FIX for N+1 queries: Eager load offers in the same query
+    products = db.query(Product).options(joinedload(Product.offers)).filter(
         Product.project_id == project_id
     ).order_by(Product.created_at).all()
 

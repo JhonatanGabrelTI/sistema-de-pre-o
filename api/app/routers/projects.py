@@ -183,13 +183,24 @@ def list_projects(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    projects = db.query(Project).filter(
+    from sqlalchemy import func
+    
+    # FIX: Group By to avoid N+1 count queries
+    projects_with_counts = db.query(
+        Project,
+        func.count(Product.id).label("product_count")
+    ).outerjoin(
+        Product, Project.id == Product.project_id
+    ).filter(
         Project.user_id == current_user.id
-    ).order_by(Project.created_at.desc()).all()
+    ).group_by(
+        Project.id
+    ).order_by(
+        Project.created_at.desc()
+    ).all()
 
     items = []
-    for p in projects:
-        count = db.query(Product).filter(Product.project_id == p.id).count()
+    for p, count in projects_with_counts:
         items.append(ProjectResponse(
             id=str(p.id),
             name=p.name,

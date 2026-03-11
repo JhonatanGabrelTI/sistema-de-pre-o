@@ -31,8 +31,9 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# Create tables
-Base.metadata.create_all(bind=engine)
+# Create tables (Commented out for Vercel startup performance)
+# In production, tables should be pre-created or managed via migrations.
+# Base.metadata.create_all(bind=engine)
 
 # Register routers
 app.include_router(auth.router)

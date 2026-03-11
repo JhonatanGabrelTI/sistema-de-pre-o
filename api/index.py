@@ -1,9 +1,12 @@
 import sys
 import os
 
-# Adiciona o diretório atual ao path para que o import da 'app' funcione localmente
-sys.path.append(os.path.dirname(__file__))
+# Adiciona o diretório da API ao path para garantir que pacotes internos sejam encontrados
+api_dir = os.path.dirname(__file__)
+if api_dir not in sys.path:
+    sys.path.append(api_dir)
 
-from app.main import app as handler # Vercel uses the exported object
+from app.main import app as handler
 
-app = handler # Export as 'app' as well just in case
+# Export standard 'app' object for Vercel
+app = handler

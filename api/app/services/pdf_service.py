@@ -10,31 +10,72 @@ from openai import OpenAI
 logger = logging.getLogger(__name__)
 
 class ItemExtracted(BaseModel):
-    numero_item: Optional[str] = Field(None, description="O número ou código do item. (ex: '1', '01', 'item 2').")
-    descricao: str = Field(..., description="Nome e descrição do produto. IMPORTANTE: Separe e não inclua aqui a quantidade, valores ou unidade de medida.")
-    quantidade: Optional[float] = Field(None, description="Apenas a quantidade explícita do produto em formato numérico.")
-    unidade_medida: Optional[str] = Field(None, description="Apenas a unidade (Ex: Unid., Cx., KG, L).")
-    valor_unitario_estimado: Optional[float] = Field(None, description="Valor ou preço unitário numérico (ex: 2.63).")
-    valor_total_estimado: Optional[float] = Field(None, description="Valor ou preço total numérico.")
+    numero_item: Optional[str] = Field(None, description="Número abstrato do item, se houver")
+    descricao: str = Field(..., description="Nome e descrição principal do produto")
+    quantidade: Optional[float] = Field(None, description="Quantidade do produto")
+    unidade_medida: Optional[str] = Field(None, description="Unidade de medida")
+    valor_unitario_estimado: Optional[float] = Field(None, description="Valor unitário estimado ou máximo aceito")
+    valor_total_estimado: Optional[float] = Field(None, description="Valor total estimado")
 
 class LoteExtracted(BaseModel):
-    numero_lote: Optional[str] = Field(None, description="Identificador do lote (ex: 1, 2, 'Lote Único')")
+    numero_lote: Optional[str]
     itens: List[ItemExtracted]
 
 class ExtracaoEdital(BaseModel):
-    documento_valido: bool = Field(..., description="true se encontrou itens de compra, false se não encontrou")
+    documento_valido: bool
     lotes: List[LoteExtracted]
 
-def extract_text_from_pdf(file_bytes: bytes) -> str:
+def parse_page_ranges(pages_config: str, max_pages: int) -> List[int]:
+    """Parse a string like '1-3, 5' into a list of 0-based page indices: [0, 1, 2, 4]"""
+    if not pages_config or not pages_config.strip():
+        return list(range(max_pages))
+    
+    selected_pages = set()
+    parts = pages_config.split(',')
+    
+    for part in parts:
+        part = part.strip()
+        if not part: continue
+        
+        if '-' in part:
+            try:
+                start, end = part.split('-')
+                start_idx = int(start.strip()) - 1
+                end_idx = int(end.strip()) - 1
+                
+                # Protect bounds
+                start_idx = max(0, min(start_idx, max_pages - 1))
+                end_idx = max(0, min(end_idx, max_pages - 1))
+                
+                if start_idx <= end_idx:
+                    for i in range(start_idx, end_idx + 1):
+                        selected_pages.add(i)
+            except ValueError:
+                continue
+        else:
+            try:
+                idx = int(part) - 1
+                if 0 <= idx < max_pages:
+                    selected_pages.add(idx)
+            except ValueError:
+                continue
+                
+    if not selected_pages:
+        return list(range(max_pages))
+        
+    return sorted(list(selected_pages))
+
+def extract_text_from_pdf(file_bytes: bytes, pages_config: str = None) -> str:
     """Extract text from PDF using pdfplumber with PyPDF fallback."""
     text = ""
     try:
         import pdfplumber
         with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
-            for page in pdf.pages:
-                page_text = page.extract_text()
+            selected_indices = parse_page_ranges(pages_config, len(pdf.pages))
+            for idx in selected_indices:
+                page_text = pdf.pages[idx].extract_text()
                 if page_text:
-                    text += page_text + "\n"
+                    text += f"--- PÁGINA {idx + 1} ---\n{page_text}\n"
         if text.strip() and len(text.strip()) > 100:
             logger.info("Text extracted via pdfplumber")
             return text.strip()
@@ -44,10 +85,11 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
     try:
         from pypdf import PdfReader
         reader = PdfReader(io.BytesIO(file_bytes))
-        for page in reader.pages:
-            page_text = page.extract_text()
+        selected_indices = parse_page_ranges(pages_config, len(reader.pages))
+        for idx in selected_indices:
+            page_text = reader.pages[idx].extract_text()
             if page_text:
-                text += page_text + "\n"
+                text += f"--- PÁGINA {idx + 1} ---\n{page_text}\n"
         if text.strip() and len(text.strip()) > 100:
             logger.info("Text extracted via PyPDF")
             return text.strip()
@@ -56,7 +98,7 @@ def extract_text_from_pdf(file_bytes: bytes) -> str:
 
     return "" # Return empty to trigger Vision OCR
 
-def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
+def parse_products_from_pdf_vision(file_bytes: bytes, pages_config: str = None) -> ExtracaoEdital:
     """Extract data using OpenAI Vision (GPT-4o) for scanned PDFs."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -68,21 +110,22 @@ def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
         
         client = OpenAI(api_key=api_key)
         system_prompt = (
-            "Atue como um extrator de dados de alta precisão. Leia o edital e localize a lista de produtos/serviços que serão comprados.\n\n"
-            "Regras absolutas:\n"
-            "1. Separe RIGOROSAMENTE a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item nos campos corretos.\n"
-            "2. A 'descricao' não deve conter quantidades ou valores.\n"
-            "3. Se não encontrar uma lista de compras, retorne 'documento_valido' como false e 'lotes' vazio [].\n"
-            "4. Responda APENAS o JSON."
+            "Atue como um extrator de dados de alta precisão. Leia estas páginas e localize a lista de produtos/serviços que serão comprados.\n\n"
+            "Preencha corretamente a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item.\n"
+            "Responda APENAS o JSON. Apenas liste os itens encontrados nestas páginas. Se não houver itens nas páginas, retorne documento_valido=false."
         )
         messages = [
             {"role": "system", "content": system_prompt}
         ]
         
-        user_content = [{"type": "text", "text": "Extraia os itens destas páginas de edital:"}]
+        user_content = [{"type": "text", "text": "Extraia os itens destas páginas especificadas:"}]
         
-        for i in range(min(5, doc.page_count)):
-            page = doc.load_page(i)
+        selected_indices = parse_page_ranges(pages_config, doc.page_count)
+        
+        # Max 10 images to prevent token blast
+        for i, idx in enumerate(selected_indices):
+            if i >= 10: break
+            page = doc.load_page(idx)
             pix = page.get_pixmap(matrix=fitz.Matrix(2, 2)) # Better quality for OCR
             img_bytes = pix.tobytes("png")
             base64_image = base64.b64encode(img_bytes).decode('utf-8')
@@ -105,7 +148,7 @@ def parse_products_from_pdf_vision(file_bytes: bytes) -> ExtracaoEdital:
         logger.error(f"Vision OCR failed: {e}")
         return ExtracaoEdital(documento_valido=False, lotes=[])
 
-def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
+def parse_products_from_text(raw_text: str, pages_config: str = None) -> ExtracaoEdital:
     """Parse product list from extracted PDF text using OpenAI LLM."""
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -117,12 +160,9 @@ def parse_products_from_text(raw_text: str) -> ExtracaoEdital:
     try:
         client = OpenAI(api_key=api_key)
         system_prompt = (
-            "Atue como um extrator de dados de alta precisão. Leia o texto do edital e localize a lista de produtos/serviços que serão comprados.\n\n"
-            "Regras absolutas:\n"
-            "1. Separe RIGOROSAMENTE a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item nos campos corretos da estrutura.\n"
-            "2. O campo 'descricao' não deve conter quantidades ou valores.\n"
-            "3. Se não houver lista de compras, retorne 'documento_valido' como false e 'lotes' vazio.\n"
-            "4. Responda APENAS o JSON conforme o schema exigido."
+            "Atue como um extrator de dados de alta precisão. Leia o texto e localize a lista de itens.\n\n"
+            "Preencha corretamente a Descrição, Quantidade, Unidade, Valor Unitário e Número do Item da estrutura.\n"
+            "Responda APENAS o JSON conforme o schema exigido. Se não houver lista, retonre documento_valido=false."
         )
         
         completion = client.beta.chat.completions.parse(

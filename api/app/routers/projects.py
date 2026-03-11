@@ -23,7 +23,7 @@ def extraction_is_valid(extracao) -> bool:
     """Helper to check if extraction result is valid."""
     return hasattr(extracao, 'documento_valido') and extracao.documento_valido and extracao.lotes
 
-async def process_pdf_background(project_id: str, file_bytes: bytes):
+async def process_pdf_background(project_id: str, file_bytes: bytes, pages_config: str = None):
     """Executado em segundo plano para extrair dados com IA sem travar a interface."""
     db: Session = SessionLocal()
     try:

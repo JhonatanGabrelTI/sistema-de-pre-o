@@ -13,6 +13,8 @@ export default function UploadPage() {
     const [file, setFile] = useState<File | null>(null);
     const [projectName, setProjectName] = useState("");
     const [dragging, setDragging] = useState(false);
+    const [specificPages, setSpecificPages] = useState(false);
+    const [pagesConfig, setPagesConfig] = useState("");
 
     // Manual State
     const [manualProjectName, setManualProjectName] = useState("");
@@ -50,7 +52,8 @@ export default function UploadPage() {
         setUploading(true);
         setError("");
         try {
-            const data: any = await api.projects.upload(file, projectName || file.name.replace(".pdf", ""));
+            const finalPagesConfig = specificPages && pagesConfig.trim() ? pagesConfig.trim() : "";
+            const data: any = await api.projects.upload(file, projectName || file.name.replace(".pdf", ""), finalPagesConfig);
             setResult(data);
         } catch (err: any) {
             setError(err.message || "Erro ao processar PDF");
@@ -206,6 +209,47 @@ export default function UploadPage() {
                                                 <X size={18} />
                                             </button>
                                         </motion.div>
+                                    )}
+
+                                    {file && (
+                                        <div style={{ marginBottom: 24, padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid var(--border)" }}>
+                                            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
+                                                <input 
+                                                    type="checkbox" 
+                                                    checked={specificPages} 
+                                                    onChange={(e) => setSpecificPages(e.target.checked)} 
+                                                    style={{ width: 16, height: 16, accentColor: "var(--accent)" }}
+                                                />
+                                                Ler apenas páginas específicas
+                                            </label>
+                                            
+                                            <AnimatePresence>
+                                                {specificPages && (
+                                                    <motion.div 
+                                                        initial={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                        animate={{ opacity: 1, height: "auto", marginTop: 12 }}
+                                                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
+                                                        style={{ overflow: "hidden" }}
+                                                    >
+                                                        <input
+                                                            type="text"
+                                                            value={pagesConfig}
+                                                            onChange={(e) => setPagesConfig(e.target.value)}
+                                                            placeholder="Ex: 1-3, 5, 8"
+                                                            className="input-field"
+                                                            style={{ 
+                                                                background: "rgba(0,0,0,0.2)",
+                                                                borderColor: "rgba(255,255,255,0.1)",
+                                                                fontSize: 14
+                                                            }}
+                                                        />
+                                                        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
+                                                            Apenas as páginas informadas serão lidas pela IA. Isso deixa o processo muito mais rápido e preciso. Se vazio, lerá tudo.
+                                                        </p>
+                                                    </motion.div>
+                                                )}
+                                            </AnimatePresence>
+                                        </div>
                                     )}
 
                                     {error && (

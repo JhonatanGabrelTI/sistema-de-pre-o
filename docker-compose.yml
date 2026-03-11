@@ -12,8 +12,10 @@ services:
         - "traefik.enable=true"
         - "traefik.http.routers.licitia-backend.rule=Host(`licitia.allanturing.com`) && PathPrefix(`/api`)"
         - "traefik.http.services.licitia-backend.loadbalancer.server.port=8000"
-        - "traefik.http.routers.licitia-backend.entrypoints=websecure"
-        - "traefik.http.routers.licitia-backend.tls=true"
+        - "traefik.http.routers.licitia-backend.entrypoints=web"
+        - "traefik.http.routers.licitia-backend.tls=false"
+    networks:
+      - app-network
 
   frontend:
     image: licitia-frontend:latest
@@ -28,5 +30,11 @@ services:
         - "traefik.enable=true"
         - "traefik.http.routers.licitia-frontend.rule=Host(`licitia.allanturing.com`)"
         - "traefik.http.services.licitia-frontend.loadbalancer.server.port=3000"
-        - "traefik.http.routers.licitia-frontend.entrypoints=websecure"
-        - "traefik.http.routers.licitia-frontend.tls=true"
+        - "traefik.http.routers.licitia-frontend.entrypoints=web"
+        - "traefik.http.routers.licitia-frontend.tls=false"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: overlay

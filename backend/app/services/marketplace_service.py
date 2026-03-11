@@ -332,8 +332,7 @@ async def search_and_save_offers(project_id: str, db=None):
         standalone = True
         
     try:
-    try:
-        products = db.query(Product).filter(Product.project_id == project_id).all()
+        products = db.query(Product).filter(Product.id == project_id, Product.project_id == project_id).all()
         total_offers = 0
 
         import asyncio

@@ -21,6 +21,7 @@ services:
       dockerfile: Dockerfile.frontend
     environment:
       - NEXT_PUBLIC_API_URL=https://licitia.allanturing.com/api
+      - HOSTNAME=0.0.0.0
     ports:
       - "3000:3000"
     deploy:

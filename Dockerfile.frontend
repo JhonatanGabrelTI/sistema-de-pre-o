@@ -20,7 +20,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v10
+ENV CACHE_BYPASS=v11
 
-# Run the standard production server
-CMD ["npm", "start"]
+# Diagnostic startup
+CMD ["sh", "-c", "echo '--- VERIFYING FILES ---' && ls -la .next && ls -la node_modules/.bin/next && echo '--- STARTING APP ---' && ./node_modules/.bin/next start -p 3000 -H 0.0.0.0 || (echo '--- DIAGNOSTIC FAILED ---' && tail -f /dev/null)"]

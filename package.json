@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "./node_modules/.bin/next start",
+    "start": "echo '--- LOADING V13 CONFIG ---' && ./node_modules/.bin/next start",
     "lint": "eslint"
   },
   "dependencies": {

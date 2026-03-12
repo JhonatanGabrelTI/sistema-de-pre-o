@@ -20,7 +20,11 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v12
+ENV CACHE_BYPASS=v13
+ENV PATH /app/node_modules/.bin:$PATH
 
-# Use ENTRYPOINT instead of CMD to prevent silent overrides
-ENTRYPOINT ["sh", "-c", "echo '--- MANUAL STARTUP TRIGGERED ---' && npm start"]
+# Verify binary existence during build
+RUN ls -la node_modules/.bin/next
+
+# Final startup
+ENTRYPOINT sh -c "echo '--- STARTING V13 ---' && npm start"

@@ -15,7 +15,7 @@ services:
       - app-network
 
   frontend:
-    image: licitia-power:v17
+    image: licitia:v18
     build:
       context: .
       dockerfile: Dockerfile.frontend

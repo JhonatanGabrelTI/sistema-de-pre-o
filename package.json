@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "echo '--- POWER BOOT V17 ---' && ./node_modules/.bin/next start",
+    "start": "echo '--- DEPLOY DEFINITIVO V18 ---' && ./node_modules/.bin/next start",
     "lint": "eslint"
   },
   "dependencies": {

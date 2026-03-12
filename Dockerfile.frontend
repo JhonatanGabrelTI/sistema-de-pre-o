@@ -23,7 +23,7 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v20
+ENV CACHE_BYPASS=v21
 
-# Absolute Stay-Alive: This MUST work or Docker is broken
-ENTRYPOINT ["sh", "-c", "echo 'V20 ALIVE' && (next start -H 0.0.0.0 || echo 'FAIL') && sleep infinity"]
+# Simple shell-form entrypoint: impossible to finish due to infinity
+ENTRYPOINT echo 'V21 BOOT' && (next start -H 0.0.0.0 || echo 'FAIL') && tail -f /dev/null

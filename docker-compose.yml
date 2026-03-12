@@ -14,8 +14,8 @@ services:
     networks:
       - app-network
 
-  licitia_v24_diagnostic:
-    image: licitia-v24:latest
+  licitia_v25_production:
+    image: licitia-v25:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend

@@ -1,9 +1,33 @@
-# Ultra-minimal diagnostic to isolate the issue
-FROM node:20
+# Multi-stage build for production optimization
+FROM node:20 AS builder
 
 WORKDIR /app
 
-# Bypass cache
-ENV CACHE_BYPASS=v24
+# Install dependencies
+COPY package.json package-lock.json ./
+RUN npm ci
 
-ENTRYPOINT ["sh", "-c", "echo 'V24_BOOT_OK' && df -h && ls -la && tail -f /dev/null"]
+# Copy source and build
+COPY . .
+ENV NEXT_TELEMETRY_DISABLED 1
+RUN npm run build
+
+# Final runner stage
+FROM node:20-slim AS runner
+WORKDIR /app
+
+ENV NODE_ENV production
+ENV NEXT_TELEMETRY_DISABLED 1
+
+# Copy only necessary files from builder
+COPY --from=builder /app/package.json ./
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/.next ./.next
+COPY --from=builder /app/public ./public
+
+# Force rebuild
+ENV CACHE_BYPASS=v25
+
+EXPOSE 3000
+
+CMD ["npm", "start"]

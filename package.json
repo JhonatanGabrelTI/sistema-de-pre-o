@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "echo '--- V24 DIAGNOSTIC START ---' && next start",
+    "start": "echo '--- V25 PRODUCTION START ---' && next start",
     "lint": "eslint"
   },
   "dependencies": {

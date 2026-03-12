@@ -3,31 +3,29 @@ version: '3.8'
 services:
   backend:
     image: licitia-backend:latest
+    build:
+      context: .
+      dockerfile: Dockerfile.backend
     ports:
       - "8000:8000"
     deploy:
       restart_policy:
         condition: on-failure
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.licitia-backend.rule=Host(`licitia.allanturing.com`) && PathPrefix(`/api`)"
-        - "traefik.http.services.licitia-backend.loadbalancer.server.port=8000"
     networks:
       - app-network
 
   frontend:
     image: licitia-frontend:latest
-    ports:
-      - "3000:3000"
+    build:
+      context: .
+      dockerfile: Dockerfile.frontend
     environment:
       - NEXT_PUBLIC_API_URL=https://licitia.allanturing.com/api
+    ports:
+      - "3000:3000"
     deploy:
       restart_policy:
         condition: on-failure
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.licitia-frontend.rule=Host(`licitia.allanturing.com`)"
-        - "traefik.http.services.licitia-frontend.loadbalancer.server.port=3000"
     networks:
       - app-network
 

@@ -14,8 +14,8 @@ services:
     networks:
       - app-network
 
-  frontend:
-    image: licitia:v18
+  licitia_web_final:
+    image: licitia-final-web:v19
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -24,7 +24,6 @@ services:
       - HOSTNAME=0.0.0.0
     ports:
       - "3000:3000"
-    stop_grace_period: 10s
     deploy:
       restart_policy:
         condition: on-failure

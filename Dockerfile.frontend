@@ -23,10 +23,7 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v19
+ENV CACHE_BYPASS=v20
 
-# Set explicit path
-ENV PATH /app/node_modules/.bin:$PATH
-
-# Shell form ENTRYPOINT is hardest to override
-ENTRYPOINT echo '--- BOOTING V19 ---' && next start -H 0.0.0.0
+# Absolute Stay-Alive: This MUST work or Docker is broken
+ENTRYPOINT ["sh", "-c", "echo 'V20 ALIVE' && (next start -H 0.0.0.0 || echo 'FAIL') && sleep infinity"]

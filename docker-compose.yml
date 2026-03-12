@@ -15,7 +15,7 @@ services:
       - app-network
 
   frontend:
-    image: licitia-frontend:v8
+    image: licitia-frontend:v9
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -24,6 +24,7 @@ services:
       - HOSTNAME=0.0.0.0
     ports:
       - "3000:3000"
+    command: tail -f /dev/null
     deploy:
       restart_policy:
         condition: any

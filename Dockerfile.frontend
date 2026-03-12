@@ -1,4 +1,4 @@
-FROM node:20-slim
+FROM node:20
 
 WORKDIR /app
 
@@ -20,7 +20,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v8
+ENV CACHE_BYPASS=v9
 
-# INSPECTION MODE: Stay alive no matter what
-CMD ["sh", "-c", "echo 'FRONTEND INSPECTION MODE ACTIVE'; tail -f /dev/null"]
+# Direct CMD
+CMD ["tail", "-f", "/dev/null"]

@@ -16,16 +16,8 @@ COPY . .
 ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
 
-# Standalone mode requires specific files to be moved
-# Next.js puts them in .next/standalone
-RUN mkdir -p .next/standalone/public && \
-    cp -r public/* .next/standalone/public/ || true && \
-    mkdir -p .next/standalone/.next/static && \
-    cp -r .next/static/* .next/standalone/.next/static/ || true
-
 # Expose port
 EXPOSE 3000
 
-# Run the standalone server
-WORKDIR /app/.next/standalone
-CMD ["node", "server.js"]
+# Run the standard production server
+CMD ["npm", "start"]

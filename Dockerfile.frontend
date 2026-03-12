@@ -1,29 +1,9 @@
+# Ultra-minimal diagnostic to isolate the issue
 FROM node:20
 
 WORKDIR /app
 
-# Install build dependencies
-RUN apt-get update && apt-get install -y python3 make g++ && rm -rf /var/lib/apt/lists/*
+# Bypass cache
+ENV CACHE_BYPASS=v24
 
-# Copy package files
-COPY package.json package-lock.json ./
-RUN npm ci
-
-# Copy source code
-COPY . .
-
-# Build the application
-ENV NEXT_TELEMETRY_DISABLED 1
-RUN npm run build
-
-# Expose port
-EXPOSE 3000
-
-# Ultimate Path Fix: Symlink the binary to global path
-RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
-
-# Force rebuild
-ENV CACHE_BYPASS=v23
-
-# Minimal: echo and sleep infinity
-ENTRYPOINT ["sh", "-c", "echo 'V23 START' && sleep infinity"]
+ENTRYPOINT ["sh", "-c", "echo 'V24_BOOT_OK' && df -h && ls -la && tail -f /dev/null"]

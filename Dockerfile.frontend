@@ -19,5 +19,8 @@ RUN npm run build
 # Expose port
 EXPOSE 3000
 
-# Run with error trapping to catch instant exits
-CMD ["sh", "-c", "echo 'Starting Next.js...'; npm start -- --port 3000 --hostname 0.0.0.0 || (echo 'Next.js exit with error'; sleep 3600)"]
+# Force rebuild
+ENV CACHE_BYPASS=v6
+
+# Direct execution to avoid shell issues
+CMD ["/app/node_modules/.bin/next", "start", "-p", "3000", "-H", "0.0.0.0"]

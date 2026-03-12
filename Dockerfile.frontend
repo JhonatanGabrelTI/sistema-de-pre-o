@@ -20,11 +20,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v13
-ENV PATH /app/node_modules/.bin:$PATH
+ENV CACHE_BYPASS=v14
 
-# Verify binary existence during build
-RUN ls -la node_modules/.bin/next
-
-# Final startup
-ENTRYPOINT sh -c "echo '--- STARTING V13 ---' && npm start"
+# Standard CMD
+CMD ["npm", "start"]

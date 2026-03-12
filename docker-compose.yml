@@ -15,7 +15,7 @@ services:
       - app-network
 
   frontend:
-    image: licitia-frontend:v1
+    image: licitia-frontend:v2
     build:
       context: .
       dockerfile: Dockerfile.frontend

@@ -20,7 +20,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v6
+ENV CACHE_BYPASS=v7
 
-# Direct execution to avoid shell issues
-CMD ["/app/node_modules/.bin/next", "start", "-p", "3000", "-H", "0.0.0.0"]
+# Debug startup: list files, then try to start, then sleep on failure
+CMD ["sh", "-c", "echo '--- FILESYSTEM CHECK ---'; ls -la && ls -la .next || echo 'No .next folder!'; echo '--- STARTING NEXT.JS ---'; ./node_modules/.bin/next start -p 3000 -H 0.0.0.0 || (echo 'FAILED TO START'; sleep 3600)"]

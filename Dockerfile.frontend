@@ -23,7 +23,7 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v21
+ENV CACHE_BYPASS=v22
 
-# Simple shell-form entrypoint: impossible to finish due to infinity
-ENTRYPOINT echo 'V21 BOOT' && (next start -H 0.0.0.0 || echo 'FAIL') && tail -f /dev/null
+# Simple CMD style for compatibility
+CMD echo 'V22 STARTING' && (npm start || echo 'FAILURE') && tail -f /dev/null

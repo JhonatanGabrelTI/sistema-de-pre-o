@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "echo '--- V21 FINAL START ---' && ./node_modules/.bin/next start",
+    "start": "echo '--- V22 TEST START ---' && next start",
     "lint": "eslint"
   },
   "dependencies": {

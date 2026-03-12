@@ -20,7 +20,7 @@ RUN npm run build
 EXPOSE 3000
 
 # Force rebuild
-ENV CACHE_BYPASS=v9
+ENV CACHE_BYPASS=v10
 
-# Direct CMD
-CMD ["tail", "-f", "/dev/null"]
+# Run the standard production server
+CMD ["npm", "start"]

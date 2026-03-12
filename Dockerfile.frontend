@@ -23,10 +23,10 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v16
+ENV CACHE_BYPASS=v17
 
 # Verify global path works
 RUN next --version
 
-# Use direct execution to avoid shell/npm overhead
-CMD ["next", "start", "-H", "0.0.0.0"]
+# Ultimate Debug CMD: Check files, try to start, and STAY ALIVE
+CMD ["sh", "-c", "echo '--- DEBUG V17 ---' && ls -la .next && (next start -H 0.0.0.0 || echo 'SITE FALHOU') && tail -f /dev/null"]

@@ -14,7 +14,7 @@ services:
     networks:
       - app-network
 
-  licitia_frontend:
+  frontend:
     image: licitia-frontend:v11
     build:
       context: .
@@ -26,7 +26,7 @@ services:
       - "3000:3000"
     deploy:
       restart_policy:
-        condition: any
+        condition: on-failure
     networks:
       - app-network
 

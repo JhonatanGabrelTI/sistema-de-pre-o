@@ -1,0 +1,5 @@
+# Force rebuild
+ENV CACHE_BYPASS=v17
+
+# Use a robust shell command for startup
+CMD ["sh", "-c", "echo '--- V17 BOOT ---' && ls -la .next && next start -H 0.0.0.0 || (echo 'FALHA NO START' && tail -f /dev/null)"]

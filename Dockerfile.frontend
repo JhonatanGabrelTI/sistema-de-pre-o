@@ -23,7 +23,7 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v22
+ENV CACHE_BYPASS=v23
 
-# Simple CMD style for compatibility
-CMD echo 'V22 STARTING' && (npm start || echo 'FAILURE') && tail -f /dev/null
+# Minimal: echo and sleep infinity
+ENTRYPOINT ["sh", "-c", "echo 'V23 START' && sleep infinity"]

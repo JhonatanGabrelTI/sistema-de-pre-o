@@ -19,8 +19,14 @@ RUN npm run build
 # Expose port
 EXPOSE 3000
 
-# Force rebuild
-ENV CACHE_BYPASS=v14
+# Ultimate Path Fix: Symlink the binary to global path
+RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
-# Standard CMD
-CMD ["npm", "start"]
+# Force rebuild
+ENV CACHE_BYPASS=v15
+
+# Verify global path works
+RUN next --version
+
+# Use direct execution to avoid shell/npm overhead
+CMD ["next", "start", "-H", "0.0.0.0"]

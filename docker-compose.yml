@@ -15,7 +15,7 @@ services:
       - app-network
 
   frontend:
-    image: licitia-frontend:v14
+    image: licitia-web:v15
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -24,7 +24,6 @@ services:
       - HOSTNAME=0.0.0.0
     ports:
       - "3000:3000"
-    command: sh -c "npm start"
     deploy:
       restart_policy:
         condition: on-failure

@@ -1,33 +1,27 @@
-# Multi-stage build for production optimization
-FROM node:20 AS builder
+# Robust single-stage build
+FROM node:20
 
 WORKDIR /app
 
-# Install dependencies
+# Bypass cache
+ENV CACHE_BYPASS=v26
+
+# Force environment
+ENV NODE_ENV production
+ENV HOSTNAME "0.0.0.0"
+ENV PORT 3000
+ENV PATH /app/node_modules/.bin:$PATH
+
+# Install
 COPY package.json package-lock.json ./
 RUN npm ci
 
-# Copy source and build
+# Build
 COPY . .
-ENV NEXT_TELEMETRY_DISABLED 1
 RUN npm run build
-
-# Final runner stage
-FROM node:20-slim AS runner
-WORKDIR /app
-
-ENV NODE_ENV production
-ENV NEXT_TELEMETRY_DISABLED 1
-
-# Copy only necessary files from builder
-COPY --from=builder /app/package.json ./
-COPY --from=builder /app/node_modules ./node_modules
-COPY --from=builder /app/.next ./.next
-COPY --from=builder /app/public ./public
-
-# Force rebuild
-ENV CACHE_BYPASS=v25
 
 EXPOSE 3000
 
-CMD ["npm", "start"]
+# Wrapper startup: If 'npm start' fails, it keeps the container alive
+# so we can actually see the logs in Portainer.
+ENTRYPOINT ["sh", "-c", "npm start || (echo '--- START FAILED, KEEPING ALIVE FOR DEBUG ---' && tail -f /dev/null)"]

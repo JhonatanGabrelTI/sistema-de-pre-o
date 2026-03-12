@@ -23,7 +23,7 @@ EXPOSE 3000
 RUN ln -s /app/node_modules/.bin/next /usr/local/bin/next
 
 # Force rebuild
-ENV CACHE_BYPASS=v15
+ENV CACHE_BYPASS=v16
 
 # Verify global path works
 RUN next --version

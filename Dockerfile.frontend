@@ -1,16 +1,12 @@
-# Robust single-stage build
+# Definitive V27 build
 FROM node:20
 
 WORKDIR /app
 
-# Bypass cache
-ENV CACHE_BYPASS=v26
-
-# Force environment
+ENV CACHE_BYPASS=v27
 ENV NODE_ENV production
 ENV HOSTNAME "0.0.0.0"
 ENV PORT 3000
-ENV PATH /app/node_modules/.bin:$PATH
 
 # Install
 COPY package.json package-lock.json ./
@@ -22,6 +18,5 @@ RUN npm run build
 
 EXPOSE 3000
 
-# Wrapper startup: If 'npm start' fails, it keeps the container alive
-# so we can actually see the logs in Portainer.
-ENTRYPOINT ["sh", "-c", "npm start || (echo '--- START FAILED, KEEPING ALIVE FOR DEBUG ---' && tail -f /dev/null)"]
+# Direct execution bypasses any npm/sh wrapper issues
+ENTRYPOINT ["node", "node_modules/.bin/next", "start"]

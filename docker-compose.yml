@@ -14,8 +14,8 @@ services:
     networks:
       - app-network
 
-  licitia_v28_debug:
-    image: licitia-v28-debug:latest
+  licitia_v29_debug:
+    image: licitia-v29-debug:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend
@@ -26,7 +26,8 @@ services:
       - "3000:3000"
     deploy:
       restart_policy:
-        condition: on-failure
+        condition: any
+        delay: 10s
     networks:
       - app-network
 

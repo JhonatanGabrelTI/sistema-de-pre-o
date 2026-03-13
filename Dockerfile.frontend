@@ -1,4 +1,4 @@
-# Definitive V28 build with Debug Wrapper
+# Definitive V29 build with Debug Wrapper (always keeps alive)
 FROM node:20
 
 WORKDIR /app
@@ -17,5 +17,5 @@ RUN npm run build
 
 EXPOSE 3000
 
-# Wrapper to detect why it exits
-ENTRYPOINT ["sh", "-c", "echo '--- V28 DEBUG START ---' && echo 'CWD:' $(pwd) && ls -la && node node_modules/.bin/next start 2>&1 && echo '--- V28 DEBUG EXITED CLEANLY ---' || (echo '--- V28 NEXT START FAILED ---' ; tail -f /dev/null)"]
+# Wrapper: always keeps container alive so logs are readable
+ENTRYPOINT ["sh", "-c", "echo '--- V29 DEBUG START ---' && echo 'NODE:' $(node -v) && echo 'CWD:' $(pwd) && ls -la node_modules/.bin/next && node node_modules/.bin/next start -p 3000 2>&1 ; echo '--- V29 EXITED with code $? ---' ; tail -f /dev/null"]

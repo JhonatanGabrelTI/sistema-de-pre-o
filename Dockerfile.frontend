@@ -1,9 +1,8 @@
-# Definitive V27 build
+# Definitive V27 build with Debug Wrapper
 FROM node:20
 
 WORKDIR /app
 
-ENV CACHE_BYPASS=v27
 ENV NODE_ENV production
 ENV HOSTNAME "0.0.0.0"
 ENV PORT 3000
@@ -18,5 +17,5 @@ RUN npm run build
 
 EXPOSE 3000
 
-# Direct execution bypasses any npm/sh wrapper issues
-ENTRYPOINT ["node", "node_modules/.bin/next", "start"]
+# Wrapper to detect why it exits
+ENTRYPOINT ["sh", "-c", "echo '--- V27 BOOTING ---' && (node node_modules/.bin/next start || (echo '--- V27 FATAL EXIT ---' && sleep 3600))"]

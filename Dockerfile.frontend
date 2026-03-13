@@ -18,4 +18,4 @@ RUN npm run build
 EXPOSE 3000
 
 # Wrapper to detect why it exits
-ENTRYPOINT ["sh", "-c", "echo '--- V27 BOOTING ---' && (node node_modules/.bin/next start || (echo '--- V27 FATAL EXIT ---' && sleep 3600))"]
+ENTRYPOINT ["sh", "-c", "echo '--- V27 DEBUG START ---' ; node node_modules/.bin/next start ; echo '--- V27 DEBUG EXITED ---' ; tail -f /dev/null"]

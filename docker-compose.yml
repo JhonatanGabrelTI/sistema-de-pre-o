@@ -14,8 +14,8 @@ services:
     networks:
       - app-network
 
-  licitia_v27_debug:
-    image: licitia-v27-debug:latest
+  licitia_v28_debug:
+    image: licitia-v28-debug:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend

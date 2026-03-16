@@ -48,5 +48,5 @@ venv/
 .venv/
 env/
 bin/
-lib/
+/lib/
 include/

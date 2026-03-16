@@ -12,6 +12,7 @@ from app.schemas.project import ProjectResponse, ProjectListResponse
 from app.services.pdf_service import (
     extract_text_from_pdf, 
     parse_products_from_text,
+    parse_products_heuristic,
     safe_float
 )
 from app.utils.auth import get_current_user
@@ -36,9 +37,9 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
         project.pdf_raw_text = raw_text
         db.commit()
         
-        # 2. Se falhar ou for muito curto, retornar erro (Vision OCR removido por instabilidade)
-        if not raw_text or len(raw_text) < 100:
-            logger.info(f"PDF {project_id} sem texto ou muito curto para extração confiável.")
+        # 2. Se falhar ou for muito curto, retornar erro
+        if not raw_text or len(raw_text) < 10:
+            logger.info(f"PDF {project_id} sem texto ou muito curto ({len(raw_text) if raw_text else 0} chars).")
             project.status = "ERROR"
             db.commit()
             return
@@ -47,10 +48,14 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
         extracao = parse_products_from_text(raw_text, pages_config)
         
         if not extraction_is_valid(extracao):
-            # Document is invalid or empty
-            project.status = "ERROR" # Ou outro status de erro que preferir
-            db.commit()
-            return
+            # Se a IA falhou (quota ou erro), tenta o modo heurístico "grátis"
+            logger.info(f"IA não retornou resultados válidos para {project_id}. Tentando extração heurística grátis...")
+            extracao = parse_products_heuristic(file_bytes, pages_config)
+            
+            if not extraction_is_valid(extracao):
+                project.status = "ERROR"
+                db.commit()
+                return
             
         for lote in extracao.lotes:
             lote_num = str(lote.numero_lote) if lote.numero_lote else None
@@ -73,9 +78,12 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
         db.commit()
         db.refresh(project)
         
-        # Busca automática no ML/Shopee em segundo plano
+        # Busca automática no ML/Shopee em segundo plano (Não await para ser rápido)
         from app.services.marketplace_service import search_and_save_offers
-        await search_and_save_offers(str(project.id), db)
+        # background_tasks.add_task(search_and_save_offers, str(project.id), db) 
+        # Como process_pdf_background já é chamado 'no vácuo' ou await, vamos garantir que a busca não trave o retorno.
+        import asyncio
+        asyncio.create_task(search_and_save_offers(str(project.id), db))
         
     except Exception as e:
         logger.error(f"Erro fatal processando PDF background do projeto {project_id}: {e}")

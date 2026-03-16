@@ -5,6 +5,7 @@ import logging
 from typing import List, Tuple, Optional, Any
 from pydantic import BaseModel, Field
 from openai import OpenAI
+from app.config import get_settings
 
 logger = logging.getLogger(__name__)
 
@@ -122,21 +123,28 @@ def extract_text_from_pdf(file_bytes: bytes, pages_config: str = None) -> str:
 
 def parse_products_from_text(raw_text: str, pages_config: str = None) -> ExtracaoEdital:
     """Parse product list from extracted PDF text using OpenAI LLM."""
-    api_key = os.getenv("OPENAI_API_KEY")
+    settings = get_settings()
+    api_key = settings.OPENAI_API_KEY
     if not api_key:
+        logger.error("ERRO: OPENAI_API_KEY não encontrada nas configurações!")
         return ExtracaoEdital(documento_valido=False, lotes=[])
 
     # Truncate to avoid token limits
     truncated_text = raw_text[:30000]
+    logger.info(f"Enviando para OpenAI {len(truncated_text)} caracteres. Primeiros 500: {truncated_text[:500]}")
     
     try:
-        client = OpenAI(api_key=api_key)
+        client = OpenAI(api_key=api_key, max_retries=0)
         system_prompt = (
-            "Atue como um extrator de dados de alta tolerância a falhas. Leia o texto e extraia qualquer tabela, lista ou grupo de serviços/produtos com valores.\n"
-            "Preencha Descrição, Quantidade, Unidade, Valor Unitário e Número do Item. Se algum campo faltar, deixe-o em nulo/null (não invente dados).\n"
-            "Sua regra de ouro é: se houver UM item válido (produto, quantidade e preço), documento_valido=true.\n"
-            "Retorne APENAS UM JSON válido com a seguinte estrutura estrita: \n"
-            '{"documento_valido": true, "lotes": [{"numero_lote": "1", "itens": [{"numero_item": "1", "descricao": "Abraçadeira", "quantidade": 100.0, "unidade_medida": "UN", "valor_unitario_estimado": 2.50, "valor_total_estimado": 250.0}]}]}'
+            "Atue como um extrator de dados de alta precisão. Sua tarefa é ler o texto de um edital ou lista de compras e extrair os produtos/serviços.\n"
+            "REGRAS CRÍTICAS:\n"
+            "1. Extraia o máximo de itens possível.\n"
+            "2. Para cada item, identifique: Descrição, Quantidade, Unidade (Ex: UN, KG, PCT), Valor Unitário e Número do Item.\n"
+            "3. Se o texto for confuso, use o bom senso para separar o nome do produto da descrição técnica.\n"
+            "4. Se encontrar QUALQUER produto, defina 'documento_valido' como true.\n"
+            "5. Se 'quantidade' ou 'valor' não forem números claros (como 'A combinar' ou 'Ver anexo'), deixe-os como null em vez de colocar zero ou inventar.\n"
+            "Retorne APENAS o JSON no formato:\n"
+            '{"documento_valido": true, "lotes": [{"numero_lote": "1", "itens": [{"numero_item": "1", "descricao": "Papel A4", "quantidade": 10.0, "unidade_medida": "CX", "valor_unitario_estimado": 25.50}]}]}'
         )
         
         completion = client.chat.completions.create(
@@ -150,7 +158,7 @@ def parse_products_from_text(raw_text: str, pages_config: str = None) -> Extraca
         )
         
         raw_json = completion.choices[0].message.content
-        logger.info(f"Text OCR Raw JSON: {raw_json[:500]}...")
+        logger.info(f"OpenAI Full Response: {raw_json}")
         
         # Clean markdown if present
         raw_json = raw_json.strip()
@@ -186,4 +194,66 @@ def parse_products_from_text(raw_text: str, pages_config: str = None) -> Extraca
             return ExtracaoEdital(documento_valido=parsed_dict.get("documento_valido", True), lotes=lotes)
     except Exception as e:
         logger.error(f"Text-based extraction failed: {e}")
+        return ExtracaoEdital(documento_valido=False, lotes=[])
+def parse_products_heuristic(file_bytes: bytes, pages_config: str = None) -> ExtracaoEdital:
+    """Extração 'grátis' usando tabelas nativas do pdfplumber sem IA."""
+    import pdfplumber
+    logger.info("Iniciando extração heurística (Free Mode)...")
+    itens = []
+    
+    try:
+        with pdfplumber.open(io.BytesIO(file_bytes)) as pdf:
+            selected_indices = parse_page_ranges(pages_config, len(pdf.pages))
+            for idx in selected_indices:
+                page = pdf.pages[idx]
+                tables = page.extract_tables()
+                
+                for table in tables:
+                    if not table or len(table) < 2: continue # Precisa de cabeçalho + 1 linha
+                    
+                    # Identifica colunas
+                    header = [str(c).lower() if c else "" for c in table[0]]
+                    desc_idx = -1
+                    qty_idx = -1
+                    price_idx = -1
+                    item_idx = -1
+                    und_idx = -1
+                    
+                    for i, col in enumerate(header):
+                        if any(k in col for k in ["descri", "objeto", "produto", "especif"]): desc_idx = i
+                        elif any(k in col for k in ["qtd", "quant", "unid"]): # Unid as fallback for qty in some contexts
+                            if "unid" in col and und_idx == -1: und_idx = i
+                            else: qty_idx = i
+                        elif any(k in col for k in ["valor", "preço", "unit", "estimado"]): price_idx = i
+                        elif any(k in col for k in ["item", "lote", "pos"]): item_idx = i
+                        elif "und" in col or "unidade" in col: und_idx = i
+
+                    # Se não achou descrição, não é uma tabela de produtos útil
+                    if desc_idx == -1: continue
+                    
+                    # Processa linhas (pula o cabeçalho)
+                    for row in table[1:]:
+                        if not row or len(row) <= desc_idx: continue
+                        desc = str(row[desc_idx]).strip() if row[desc_idx] else ""
+                        if not desc or len(desc) < 3: continue
+                        
+                        qty = safe_float(row[qty_idx]) if qty_idx != -1 and row[qty_idx] else 1.0
+                        price = safe_float(row[price_idx]) if price_idx != -1 and row[price_idx] else 0.0
+                        num_item = str(row[item_idx]).strip() if item_idx != -1 and row[item_idx] else None
+                        und = str(row[und_idx]).strip() if und_idx != -1 and row[und_idx] else "UN"
+                        
+                        itens.append(ItemExtracted(
+                            numero_item=num_item,
+                            descricao=desc,
+                            quantidade=qty,
+                            unidade_medida=und,
+                            valor_unitario_estimado=price,
+                            valor_total_estimado=(qty or 1) * (price or 0)
+                        ))
+        
+        logger.info(f"Heurística encontrou {len(itens)} itens.")
+        return ExtracaoEdital(documento_valido=len(itens) > 0, lotes=[LoteExtracted(numero_lote="1", itens=itens)])
+        
+    except Exception as e:
+        logger.error(f"Heuristic extraction failed: {e}")
         return ExtracaoEdital(documento_valido=False, lotes=[])

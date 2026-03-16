@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    image: licitia-backend:latest
+    image: jhonatangabrielpro/licitia-backend:latest
     build:
       context: .
       dockerfile: Dockerfile.backend
@@ -15,7 +15,7 @@ services:
       - app-network
 
   licitia_v29_debug:
-    image: licitia-v29-debug:latest
+    image: jhonatangabrielpro/licitia-v29-debug:latest
     build:
       context: .
       dockerfile: Dockerfile.frontend

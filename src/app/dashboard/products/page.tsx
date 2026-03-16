@@ -1,7 +1,8 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { motion } from "framer-motion";
+import { useSearchParams } from "next/navigation";
 import { api } from "@/lib/api";
 import {
     Package,
@@ -17,6 +18,14 @@ import {
 } from "lucide-react";
 
 export default function ProductsPage() {
+    return (
+        <Suspense fallback={<div className="skeleton" style={{ height: "100vh", width: "100%" }} />}>
+            <ProductsContent />
+        </Suspense>
+    );
+}
+
+function ProductsContent() {
     const [projects, setProjects] = useState<any[]>([]);
     const [selectedProject, setSelectedProject] = useState<string>("");
     const [products, setProducts] = useState<any[]>([]);
@@ -30,17 +39,23 @@ export default function ProductsPage() {
     const [selectedProductIds, setSelectedProductIds] = useState<string[]>([]);
     const [isUpdating, setIsUpdating] = useState(false);
 
+    const searchParams = useSearchParams();
+    const urlProjectId = searchParams.get("projectId");
+
     useEffect(() => {
         api.projects
             .list()
             .then((data: any) => {
                 setProjects(data.projects);
-                if (data.projects.length > 0) {
+                // If projectId in URL, select it, otherwise default to first project
+                if (urlProjectId) {
+                    setSelectedProject(urlProjectId);
+                } else if (data.projects.length > 0) {
                     setSelectedProject(data.projects[0].id);
                 }
             })
             .finally(() => setLoading(false));
-    }, []);
+    }, [urlProjectId]);
 
     useEffect(() => {
         if (selectedProject) {

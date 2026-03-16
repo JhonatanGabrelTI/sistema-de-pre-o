@@ -12,7 +12,6 @@ from app.schemas.project import ProjectResponse, ProjectListResponse
 from app.services.pdf_service import (
     extract_text_from_pdf, 
     parse_products_from_text,
-    parse_products_from_pdf_vision,
     safe_float
 )
 from app.utils.auth import get_current_user
@@ -37,13 +36,15 @@ async def process_pdf_background(project_id: str, file_bytes: bytes, pages_confi
         project.pdf_raw_text = raw_text
         db.commit()
         
-        # 2. Se falhar ou for muito curto, usa VISION
+        # 2. Se falhar ou for muito curto, retornar erro (Vision OCR removido por instabilidade)
         if not raw_text or len(raw_text) < 100:
-            logger.info(f"PDF {project_id} sem texto. Ativando GPT-4o Vision OCR...")
-            extracao = parse_products_from_pdf_vision(file_bytes, pages_config)
-        else:
-            # Parse products via LLM (Texto)
-            extracao = parse_products_from_text(raw_text, pages_config)
+            logger.info(f"PDF {project_id} sem texto ou muito curto para extração confiável.")
+            project.status = "ERROR"
+            db.commit()
+            return
+        
+        # Parse products via LLM (Texto)
+        extracao = parse_products_from_text(raw_text, pages_config)
         
         if not extraction_is_valid(extracao):
             # Document is invalid or empty

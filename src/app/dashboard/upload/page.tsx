@@ -13,8 +13,6 @@ export default function UploadPage() {
     const [file, setFile] = useState<File | null>(null);
     const [projectName, setProjectName] = useState("");
     const [dragging, setDragging] = useState(false);
-    const [specificPages, setSpecificPages] = useState(false);
-    const [pagesConfig, setPagesConfig] = useState("");
 
     // Manual State
     const [manualProjectName, setManualProjectName] = useState("");
@@ -23,6 +21,7 @@ export default function UploadPage() {
 
     // Shared State
     const [uploading, setUploading] = useState(false);
+    const [progress, setProgress] = useState(0);
     const [result, setResult] = useState<any>(null);
     const [error, setError] = useState("");
     const router = useRouter();
@@ -50,12 +49,28 @@ export default function UploadPage() {
     const handleUploadPdf = async () => {
         if (!file) return;
         setUploading(true);
+        setProgress(0);
         setError("");
+        
+        const progressInterval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 95) return prev;
+                const next = prev + Math.random() * 5;
+                return next > 95 ? 95 : next;
+            });
+        }, 500);
+
         try {
-            const finalPagesConfig = specificPages && pagesConfig.trim() ? pagesConfig.trim() : "";
-            const data: any = await api.projects.upload(file, projectName || file.name.replace(".pdf", ""), finalPagesConfig);
-            setResult(data);
+            const data: any = await api.projects.upload(file, projectName || file.name.replace(".pdf", ""), "");
+            clearInterval(progressInterval);
+            setProgress(100);
+            setTimeout(() => setResult(data), 500);
+            
+            setTimeout(() => {
+                router.push(`/dashboard/products?projectId=${data.id}`);
+            }, 3000);
         } catch (err: any) {
+            clearInterval(progressInterval);
             setError(err.message || "Erro ao processar PDF");
         } finally {
             setUploading(false);
@@ -69,7 +84,17 @@ export default function UploadPage() {
         }
 
         setUploading(true);
+        setProgress(0);
         setError("");
+
+        const progressInterval = setInterval(() => {
+            setProgress(prev => {
+                if (prev >= 95) return prev;
+                const next = prev + 10;
+                return next > 95 ? 95 : next;
+            });
+        }, 300);
+
         try {
             const qty = parseInt(manualQuantity) || 1;
             const data: any = await api.projects.uploadManual(
@@ -77,8 +102,15 @@ export default function UploadPage() {
                 manualProductName,
                 qty
             );
-            setResult(data);
+            clearInterval(progressInterval);
+            setProgress(100);
+            setTimeout(() => setResult(data), 500);
+            
+            setTimeout(() => {
+                router.push(`/dashboard/products?projectId=${data.id}`);
+            }, 3000);
         } catch (err: any) {
+            clearInterval(progressInterval);
             setError(err.message || "Erro ao processar item");
         } finally {
             setUploading(false);
@@ -211,51 +243,26 @@ export default function UploadPage() {
                                         </motion.div>
                                     )}
 
-                                    {file && (
-                                        <div style={{ marginBottom: 24, padding: "16px", background: "rgba(255,255,255,0.02)", borderRadius: 8, border: "1px solid var(--border)" }}>
-                                            <label style={{ display: "flex", alignItems: "center", gap: 8, cursor: "pointer", fontSize: 14, fontWeight: 500, color: "var(--text-primary)" }}>
-                                                <input 
-                                                    type="checkbox" 
-                                                    checked={specificPages} 
-                                                    onChange={(e) => setSpecificPages(e.target.checked)} 
-                                                    style={{ width: 16, height: 16, accentColor: "var(--accent)" }}
-                                                />
-                                                Ler apenas páginas específicas
-                                            </label>
-                                            
-                                            <AnimatePresence>
-                                                {specificPages && (
-                                                    <motion.div 
-                                                        initial={{ opacity: 0, height: 0, marginTop: 0 }}
-                                                        animate={{ opacity: 1, height: "auto", marginTop: 12 }}
-                                                        exit={{ opacity: 0, height: 0, marginTop: 0 }}
-                                                        style={{ overflow: "hidden" }}
-                                                    >
-                                                        <input
-                                                            type="text"
-                                                            value={pagesConfig}
-                                                            onChange={(e) => setPagesConfig(e.target.value)}
-                                                            placeholder="Ex: 1-3, 5, 8"
-                                                            className="input-field"
-                                                            style={{ 
-                                                                background: "rgba(0,0,0,0.2)",
-                                                                borderColor: "rgba(255,255,255,0.1)",
-                                                                fontSize: 14
-                                                            }}
-                                                        />
-                                                        <p style={{ fontSize: 12, color: "var(--text-muted)", marginTop: 6 }}>
-                                                            Apenas as páginas informadas serão lidas pela IA. Isso deixa o processo muito mais rápido e preciso. Se vazio, lerá tudo.
-                                                        </p>
-                                                    </motion.div>
-                                                )}
-                                            </AnimatePresence>
-                                        </div>
-                                    )}
-
                                     {error && (
                                         <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 14px", background: "rgba(239,68,68,0.1)", border: "1px solid rgba(239,68,68,0.3)", borderRadius: 8, color: "var(--danger)", fontSize: 13, marginBottom: 16 }}>
                                             <AlertCircle size={16} />
                                             {error}
+                                        </div>
+                                    )}
+
+                                    {uploading && (
+                                        <div style={{ marginBottom: 20 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13, fontWeight: 500 }}>
+                                                <span style={{ color: "var(--accent)" }}>Analisando dados...</span>
+                                                <span style={{ color: "var(--text-muted)" }}>{Math.round(progress)}%</span>
+                                            </div>
+                                            <div style={{ width: "100%", height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${progress}%` }}
+                                                    style={{ height: "100%", background: "var(--accent)", boxShadow: "0 0 10px var(--accent-glow)" }}
+                                                />
+                                            </div>
                                         </div>
                                     )}
 
@@ -319,6 +326,22 @@ export default function UploadPage() {
                                         </div>
                                     )}
 
+                                    {uploading && (
+                                        <div style={{ marginBottom: 20 }}>
+                                            <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 8, fontSize: 13, fontWeight: 500 }}>
+                                                <span style={{ color: "var(--accent)" }}>Buscando ofertas...</span>
+                                                <span style={{ color: "var(--text-muted)" }}>{Math.round(progress)}%</span>
+                                            </div>
+                                            <div style={{ width: "100%", height: 6, background: "rgba(255,255,255,0.05)", borderRadius: 3, overflow: "hidden" }}>
+                                                <motion.div 
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: `${progress}%` }}
+                                                    style={{ height: "100%", background: "var(--accent)", boxShadow: "0 0 10px var(--accent-glow)" }}
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+
                                     <button onClick={handleUploadManual} disabled={!manualProductName.trim() || uploading} className="btn-primary" style={{ width: "100%", display: "flex", alignItems: "center", justifyContent: "center", gap: 8, padding: "14px 24px" }}>
                                         {uploading ? <><Loader2 size={18} style={{ animation: "spin 1s linear infinite" }} /> Buscando ofertas...</> : <><CheckCircle2 size={18} /> Iniciar Análise</>}
                                     </button>
@@ -346,10 +369,9 @@ export default function UploadPage() {
                         Projeto: <strong>{result.name}</strong>
                     </p>
                     <p style={{ color: "var(--text-secondary)", fontSize: 14, marginBottom: 24 }}>
-                        {mode === "pdf" 
-                            ? "A Inteligência Artificial está extraindo os dados em segundo plano. Você já pode navegar pelo sistema enquanto isso."
-                            : `${result.product_count} produtos em análise`
-                        }
+                        {result.product_count} produtos prontos para análise.
+                        <br />
+                        <span style={{ fontSize: 12, opacity: 0.7 }}>Você será redirecionado em instantes...</span>
                     </p>
                     <div style={{ display: "flex", gap: 12, justifyContent: "center" }}>
                         <button onClick={() => router.push("/dashboard/products")} className="btn-primary" style={{ padding: "12px 24px" }}>
